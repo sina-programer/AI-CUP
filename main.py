@@ -4,7 +4,7 @@ import random
 
 
 Node = namedtuple('Node', ['id', 'score'])
-game.flag = False
+FORT_FLAG = False  # Has the fortress been completed yet?
 
 
 def keys_to_int(dic):
@@ -73,7 +73,21 @@ def initializer(game: game.Game):
 
 
 def turn(game):
-    print(game.get_number_of_troops_to_put())
+    put_troop_state(game)
+    game.next_state()
+
+    attack_state(game)
+    game.next_state()
+
+    move_troop_state(game)
+    game.next_state()
+
+    if not FORT_FLAG:
+        fort_state(game)
+    game.next_state()
+
+
+def put_troop_state(game):
     owner = game.get_owners()
     for i in owner.keys():
         if owner[str(i)] == -1 and game.get_number_of_troops_to_put()['number_of_troops'] > 1:
@@ -86,9 +100,7 @@ def turn(game):
     print(game.put_troop(random.choice(list_of_my_nodes), game.get_number_of_troops_to_put()['number_of_troops']))
     print(game.get_number_of_troops_to_put())
 
-    print(game.next_state())
-
-    # find the node with the most troops that I own
+def attack_state(game):
     max_troops = 0
     max_node = -1
     owner = game.get_owners()
@@ -103,9 +115,8 @@ def turn(game):
         if owner[str(i)] != game.get_player_id()['player_id'] and owner[str(i)] != -1:
             print(game.attack(max_node, i, 1, 0.5))
             break
-    print(game.next_state())
-    print(game.get_state())
-    # get the node with the most troops that I own
+
+def move_troop_state(game):
     max_troops = 0
     max_node = -1
     owner = game.get_owners()
@@ -115,21 +126,27 @@ def turn(game):
                 max_troops = game.get_number_of_troops()[i]
                 max_node = i
     print(game.get_reachable(max_node))
-    destination = random.choice(game.get_reachable(max_node)['reachable'])
+    x = game.get_reachable(max_node)['reachable']
+    try:
+        x.remove(int(max_node))
+    except:
+        print(x, max_node)
+    destination = random.choice(x)
     print(game.move_troop(max_node, destination, 1))
-    print(game.next_state())
 
-    if flag == False:
-        max_troops = 0
-        max_node = -1
-        owner = game.get_owners()
-        for i in owner.keys():
-            if owner[str(i)] == game.get_player_id()['player_id']:
-                if game.get_number_of_troops()[i] > max_troops:
-                    max_troops = game.get_number_of_troops()[i]
-                    max_node = i
+def fort_state(game):
+    global FORT_FLAG
 
-        print(game.get_number_of_troops()[str(max_node)])
-        print(game.fort(max_node, 3))
-        print(game.get_number_of_fort_troops())
-        flag = True
+    max_troops = 0
+    max_node = -1
+    owner = game.get_owners()
+    for i in owner.keys():
+        if owner[str(i)] == game.get_player_id()['player_id']:
+            if game.get_number_of_troops()[i] > max_troops:
+                max_troops = game.get_number_of_troops()[i]
+                max_node = i
+
+    print(game.get_number_of_troops()[str(max_node)])
+    print(game.fort(max_node, 3))
+    print(game.get_number_of_fort_troops())
+    FORT_FLAG = True
