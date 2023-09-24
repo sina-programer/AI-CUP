@@ -74,7 +74,6 @@ def initializer(game: game.Game):
 
 
 def turn(game):
-    print('-'*50)
     print('Turn: ', game.get_turn_number()['turn_number'])
 
     put_troop_state(game)
@@ -88,6 +87,8 @@ def turn(game):
 
     if not FORT_FLAG:
         fort_state(game)
+
+    print('-'*50)
 
 
 def put_troop_state(game):
@@ -151,14 +152,11 @@ def fort_state(game):
     owners = keys_to_int(game.get_owners())
     troop_counts = keys_to_int(game.get_number_of_troops())
     player_id = game.get_player_id()['player_id']
-    max_troops = 0
-    max_node = -1
+    strategic_nodes = get_strategic_nodes(game)
 
-    for i in owners.keys():
-        if owners[i] == player_id:
-            if troop_counts[i] > max_troops:
-                max_troops = troop_counts[i]
-                max_node = i
+    for node in strategic_nodes:  # nodes are sorted by score
+        if owners[node.id] == player_id:
+            print(game.fort(node.id, troop_counts[node.id]-1))
+            break
 
-    print(game.fort(max_node, 3))
     FORT_FLAG = True
