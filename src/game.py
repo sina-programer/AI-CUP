@@ -18,6 +18,20 @@ class Game:
             print("unknown error")
             raise Exception("unknown error")
         
+    def printer(self, text):
+        """
+            this API used for debug
+        """
+        body = {
+            'text': str(text)
+        }
+        try:
+            resp = requests.request('POST', f'http://{self.server_ip}:{self.server_port}/printer', headers={'x-access-token': self.token}, data=body)
+        except:
+            print("can't make request")
+            return {}
+        return self.handel_output(resp)
+
     def get_owners(self):
         """
             returns a dictionary of node_id: owner_id
