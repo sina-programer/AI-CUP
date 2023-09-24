@@ -87,6 +87,7 @@ def turn(game):
 
     if not FORT_FLAG:
         fort_state(game)
+    game.next_state()
 
     print('-'*50)
 
