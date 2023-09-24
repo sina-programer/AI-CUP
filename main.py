@@ -16,8 +16,9 @@ def put_one_troop(game, i, description=None):
     print(response)
 
 def get_strategic_nodes(game):
-    strategic_nodes_ = game.get_strategic_nodes()['strategic_nodes']
-    scores_ = game.get_strategic_nodes()['score']
+    strategic_nodes_data = game.get_strategic_nodes()
+    strategic_nodes_ = strategic_nodes_data['strategic_nodes']
+    scores_ = strategic_nodes_data['score']
     strategic_nodes = list(map(lambda x: Node(*x), zip(strategic_nodes_, scores_)))
     strategic_nodes.sort(key=lambda node: node.score, reverse=True)
     return strategic_nodes
@@ -73,6 +74,9 @@ def initializer(game: game.Game):
 
 
 def turn(game):
+    print('-'*50)
+    print('Turn: ', game.get_turn_number()['turn_number'])
+
     put_troop_state(game)
     game.next_state()
 
@@ -84,7 +88,6 @@ def turn(game):
 
     if not FORT_FLAG:
         fort_state(game)
-    # game.next_state()
 
 
 def put_troop_state(game):
