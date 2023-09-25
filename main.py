@@ -31,7 +31,6 @@ def keys_to_int(dic):
 
     return {int(key): value for key, value in dic.items()}
 
-
 def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
     """ Return all the strategic nodes as 'Node' objects. They also can be ordered by setting parameters """
 
@@ -44,9 +43,6 @@ def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
     if player_id:
         strategic_nodes = list(filter(lambda node: node.id == player_id, strategic_nodes))
     return strategic_nodes
-
-def get_my_strategic_nodes(nodes: list[Node]):
-    return list(filter(lambda node: node.id == PLAYER_ID, nodes))
 
 
 def initializer(game: game.Game): 
@@ -95,7 +91,7 @@ def initializer(game: game.Game):
     # Then, check for our strategic nodes to have a minimum necessary troops
     troops_count = keys_to_int(game.get_number_of_troops())
     my_strategic_nodes = list(filter(lambda i: i in strategic_nodes_, my_nodes))
-    my_ordinary_nodes = list(filter(lambda i: i not in strategic_nodes_, my_nodes))
+    my_ordinary_nodes = list(filter(lambda i: i not in my_strategic_nodes, my_nodes))
 
     for i in my_strategic_nodes:
         if troops_count[i] < MINIMUM_STRATEGY_TROOPS:
@@ -132,7 +128,7 @@ def turn(game):
 
     if not FORT_FLAG:
         fort_state(game)
-    # game.next_state()
+    game.next_state()
 
     print('-'*50)
 
