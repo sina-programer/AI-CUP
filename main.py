@@ -4,7 +4,6 @@ import operator
 import random
 
 
-Node = namedtuple('Node', ['id', 'score'])
 MINIMUM_STRATEGY_TROOPS = 4
 MAXIMUM_ORDINARY_TROOPS = 2
 FORT_FLAG = False  # Has the fortress been completed yet?
@@ -13,6 +12,7 @@ MAIN_TURNS = 20
 PLAYERS = 3
 PLAYER_ID = None
 
+Node = namedtuple('Node', ['id', 'score'])
 id_getter = operator.attrgetter('id')
 score_getter = operator.attrgetter('score')
 
@@ -153,15 +153,15 @@ def attack_state(game):
     """ Mange the attack state (2nd state) """
 
     owners = keys_to_int(game.get_owners())
-    troop_counts = keys_to_int(game.get_number_of_troops())
+    troops_count = keys_to_int(game.get_number_of_troops())
     adjacents = keys_to_int(game.get_adj())
     max_troops = 0
     max_node = -1
 
     for i in owners.keys():
         if owners[i] == PLAYER_ID:
-            if troop_counts[i] > max_troops:
-                max_troops = troop_counts[i]
+            if troops_count[i] > max_troops:
+                max_troops = troops_count[i]
                 max_node = i
 
     for i in adjacents[max_node]:
@@ -173,14 +173,14 @@ def move_troop_state(game):
     """ Mange the move-troop state (3rd state) """
 
     owners = keys_to_int(game.get_owners())
-    troop_counts = keys_to_int(game.get_number_of_troops())
+    troops_count = keys_to_int(game.get_number_of_troops())
     max_troops = 0
     max_node = -1
 
     for i in owners.keys():
         if owners[i] == PLAYER_ID:
-            if troop_counts[i] > max_troops:
-                max_troops = troop_counts[i]
+            if troops_count[i] > max_troops:
+                max_troops = troops_count[i]
                 max_node = i
 
     try:
@@ -196,13 +196,11 @@ def fort_state(game):
 
     global FORT_FLAG
 
-    owners = keys_to_int(game.get_owners())
-    troop_counts = keys_to_int(game.get_number_of_troops())
-    strategic_nodes = get_strategic_nodes(game)
+    my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
+    troops_count = keys_to_int(game.get_number_of_troops())
 
-    for node in strategic_nodes:  # nodes are sorted by score
-        if owners[node.id] == PLAYER_ID:
-            print(game.fort(node.id, troop_counts[node.id]-1))
-            break
+    for node in my_strategic_nodes:  # nodes are sorted by score
+        print(game.fort(node.id, troops_count[node.id]-1))
+        break
 
     FORT_FLAG = True
