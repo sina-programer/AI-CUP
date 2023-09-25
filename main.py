@@ -11,30 +11,40 @@ id_getter = operator.attrgetter('id')
 score_getter = operator.attrgetter('score')
 
 def node_constructor(node_id, score):
+    """ Create 'Node' objects by receiving parameters """
+
     return Node(node_id, score)
 
 def node_constructor_packed(params):
-    print(params)
+    """ Create 'Node' objects by packed (zipped) values """
+
     return node_constructor(*params)
 
 def keys_to_int(dic):
+    """ Convert type of keys in input dictionary to integer """
+
     return {int(key): value for key, value in dic.items()}
 
 
 def get_strategic_nodes(game, sort=True, reverse=True):
-    strategic_nodes_data = game.get_strategic_nodes()
+    """ Return all the strategic nodes as 'Node' objects. They also can be ordered by setting parameters """
+
+    strategic_nodes_data = game.get_strategic_nodes()  # fetch strategic nodes data
     strategic_nodes_ = strategic_nodes_data['strategic_nodes']
     scores_ = strategic_nodes_data['score']
-    strategic_nodes = list(map(node_constructor_packed, zip(strategic_nodes_, scores_)))
+    strategic_nodes = list(map(node_constructor_packed, zip(strategic_nodes_, scores_)))  # create a list of Node objects
     if sort:
-        strategic_nodes.sort(key=lambda node: node.score, reverse=reverse)
+        strategic_nodes.sort(key=lambda node: node.score, reverse=reverse)  # sort final nodes, by considering parameters
     return strategic_nodes
 
 
-def initializer(game: game.Game):   
+def initializer(game: game.Game): 
+    """ Handle the initialization phase """
+
     print('-'*50)
     print('Turn: ', game.get_turn_number()['turn_number'])
 
+    # Define essential variables along the turn
     strategic_nodes = get_strategic_nodes(game)
     strategic_nodes_ = list(map(id_getter, strategic_nodes))
     player_id = game.get_player_id()['player_id']
@@ -42,6 +52,7 @@ def initializer(game: game.Game):
     adjacents = keys_to_int(game.get_adj())
     my_nodes = []
 
+    # First, occupy vacant planets
     level = 1
     checked_nodes = set()
     checking_nodes = strategic_nodes_.copy()
@@ -66,6 +77,7 @@ def initializer(game: game.Game):
         level += 1
 
 
+    # Then, check for our strategic nodes to have a minimum neccessary troops
     troops_count = keys_to_int(game.get_number_of_troops())
     my_strategic_nodes = list(filter(lambda i: i in strategic_nodes_, my_nodes))
     my_ordinary_nodes = list(filter(lambda i: i not in strategic_nodes_, my_nodes))
@@ -75,12 +87,15 @@ def initializer(game: game.Game):
             print(game.put_one_troop(i))
             return
 
+    # Finally, put random troops
     i = random.choice(my_ordinary_nodes)
     print(game.put_one_troop(i))
     return
 
 
 def turn(game):
+    """ Handle the main phase """
+
     print('Turn: ', game.get_turn_number()['turn_number'])
 
     put_troop_state(game)
@@ -94,12 +109,14 @@ def turn(game):
 
     if not FORT_FLAG:
         fort_state(game)
-    game.next_state()
+    # game.next_state()
 
     print('-'*50)
 
 
 def put_troop_state(game):
+    """ Mange the put-troop state (1st state) """
+
     owners = keys_to_int(game.get_owners())
     player_id = game.get_player_id()['player_id']
 
@@ -115,6 +132,8 @@ def put_troop_state(game):
     print(game.put_troop(random.choice(list_of_my_nodes), game.get_number_of_troops_to_put()['number_of_troops']))
 
 def attack_state(game):
+    """ Mange the attack state (2nd state) """
+
     owners = keys_to_int(game.get_owners())
     troop_counts = keys_to_int(game.get_number_of_troops())
     player_id = game.get_player_id()['player_id']
@@ -134,6 +153,8 @@ def attack_state(game):
             break
 
 def move_troop_state(game):
+    """ Mange the move-troop state (3rd state) """
+
     owners = keys_to_int(game.get_owners())
     troop_counts = keys_to_int(game.get_number_of_troops())
     player_id = game.get_player_id()['player_id']
@@ -155,6 +176,8 @@ def move_troop_state(game):
         print('Error: ', error)
 
 def fort_state(game):
+    """ Mange the fort state (4th state) """
+
     global FORT_FLAG
 
     owners = keys_to_int(game.get_owners())
