@@ -10,6 +10,8 @@ MAXIMUM_ORDINARY_TROOPS = 2
 FORT_FLAG = False  # Has the fortress been completed yet?
 INITIAL_TURNS = 35
 MAIN_TURNS = 20
+PLAYERS = 3
+PLAYER_ID = None
 
 id_getter = operator.attrgetter('id')
 score_getter = operator.attrgetter('score')
@@ -30,7 +32,7 @@ def keys_to_int(dic):
     return {int(key): value for key, value in dic.items()}
 
 
-def get_strategic_nodes(game, sort=True, reverse=True):
+def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
     """ Return all the strategic nodes as 'Node' objects. They also can be ordered by setting parameters """
 
     strategic_nodes_data = game.get_strategic_nodes()  # fetch strategic nodes data
@@ -39,11 +41,21 @@ def get_strategic_nodes(game, sort=True, reverse=True):
     strategic_nodes = list(map(node_constructor_packed, zip(strategic_nodes_, scores_)))  # create a list of Node objects
     if sort:
         strategic_nodes.sort(key=lambda node: node.score, reverse=reverse)  # sort final nodes, by considering parameters
+    if player_id:
+        strategic_nodes = list(filter(lambda node: node.id == player_id, strategic_nodes))
     return strategic_nodes
+
+def get_my_strategic_nodes(nodes: list[Node]):
+    return list(filter(lambda node: node.id == PLAYER_ID, nodes))
 
 
 def initializer(game: game.Game): 
     """ Handle the initialization phase """
+
+    global PLAYER_ID
+
+    if not PLAYER_ID:
+        PLAYER_ID = game.get_player_id()['player_id']
 
     print('-'*50)
     print('Turn: ', game.get_turn_number()['turn_number'])
@@ -51,7 +63,6 @@ def initializer(game: game.Game):
     # Define essential variables along the turn
     strategic_nodes = get_strategic_nodes(game)
     strategic_nodes_ = list(map(id_getter, strategic_nodes))
-    player_id = game.get_player_id()['player_id']
     owners = keys_to_int(game.get_owners())
     adjacents = keys_to_int(game.get_adj())
     my_nodes = []
@@ -70,7 +81,7 @@ def initializer(game: game.Game):
                 new_checking_nodes.extend(set(neighbors) - checked_nodes)
                 owner = owners[i]
 
-                if owner in [player_id, -1]:
+                if owner in [PLAYER_ID, -1]:
                     my_nodes.append(i)
 
                 if owner == -1:
@@ -130,7 +141,6 @@ def put_troop_state(game):
     """ Mange the put-troop state (1st state) """
 
     owners = keys_to_int(game.get_owners())
-    player_id = game.get_player_id()['player_id']
 
     for i in owners.keys():
         if (owners[i] == -1) and game.get_number_of_troops_to_put()['number_of_troops']:
@@ -138,7 +148,7 @@ def put_troop_state(game):
 
     list_of_my_nodes = []
     for i in owners.keys():
-        if owners[i] == player_id:
+        if owners[i] == PLAYER_ID:
             list_of_my_nodes.append(i)
 
     print(game.put_troop(random.choice(list_of_my_nodes), game.get_number_of_troops_to_put()['number_of_troops']))
@@ -148,19 +158,18 @@ def attack_state(game):
 
     owners = keys_to_int(game.get_owners())
     troop_counts = keys_to_int(game.get_number_of_troops())
-    player_id = game.get_player_id()['player_id']
     adjacents = keys_to_int(game.get_adj())
     max_troops = 0
     max_node = -1
 
     for i in owners.keys():
-        if owners[i] == player_id:
+        if owners[i] == PLAYER_ID:
             if troop_counts[i] > max_troops:
                 max_troops = troop_counts[i]
                 max_node = i
 
     for i in adjacents[max_node]:
-        if (owners[i] != player_id) and (owners[i] != -1):
+        if (owners[i] != PLAYER_ID) and (owners[i] != -1):
             print(game.attack(max_node, i, 1, 0.5))
             break
 
@@ -169,12 +178,11 @@ def move_troop_state(game):
 
     owners = keys_to_int(game.get_owners())
     troop_counts = keys_to_int(game.get_number_of_troops())
-    player_id = game.get_player_id()['player_id']
     max_troops = 0
     max_node = -1
 
     for i in owners.keys():
-        if owners[i] == player_id:
+        if owners[i] == PLAYER_ID:
             if troop_counts[i] > max_troops:
                 max_troops = troop_counts[i]
                 max_node = i
@@ -194,11 +202,10 @@ def fort_state(game):
 
     owners = keys_to_int(game.get_owners())
     troop_counts = keys_to_int(game.get_number_of_troops())
-    player_id = game.get_player_id()['player_id']
     strategic_nodes = get_strategic_nodes(game)
 
     for node in strategic_nodes:  # nodes are sorted by score
-        if owners[node.id] == player_id:
+        if owners[node.id] == PLAYER_ID:
             print(game.fort(node.id, troop_counts[node.id]-1))
             break
 
