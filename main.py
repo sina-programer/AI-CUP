@@ -1,11 +1,17 @@
 from collections import namedtuple
 from src import game
+import operator
 import random
 
 
 Node = namedtuple('Node', ['id', 'score'])
 FORT_FLAG = False  # Has the fortress been completed yet?
 
+id_getter = operator.attrgetter('id')
+score_getter = operator.attrgetter('score')
+
+def node_constructor(node_id, score):
+    return Node(node_id, score)
 
 def keys_to_int(dic):
     return {int(key): value for key, value in dic.items()}
@@ -15,12 +21,13 @@ def put_one_troop(game, i, description=None):
     print(f"One troop put in id={i}" + f" ({description})" if description else '')
     print(response)
 
-def get_strategic_nodes(game):
+def get_strategic_nodes(game, sort=True, reverse=True):
     strategic_nodes_data = game.get_strategic_nodes()
     strategic_nodes_ = strategic_nodes_data['strategic_nodes']
     scores_ = strategic_nodes_data['score']
-    strategic_nodes = list(map(lambda x: Node(*x), zip(strategic_nodes_, scores_)))
-    strategic_nodes.sort(key=lambda node: node.score, reverse=True)
+    strategic_nodes = list(map(node_constructor, zip(strategic_nodes_, scores_)))
+    if sort:
+        strategic_nodes.sort(key=lambda node: node.score, reverse=reverse)
     return strategic_nodes
 
 
@@ -29,7 +36,7 @@ def initializer(game: game.Game):
     print('Turn: ', game.get_turn_number()['turn_number'])
 
     strategic_nodes = get_strategic_nodes(game)
-    strategic_nodes_ = list(map(lambda node: node.id, strategic_nodes))
+    strategic_nodes_ = list(map(id_getter, strategic_nodes))
     player_id = game.get_player_id()['player_id']
     owners = keys_to_int(game.get_owners())
     adjacents = keys_to_int(game.get_adj())
