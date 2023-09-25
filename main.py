@@ -16,10 +16,6 @@ def node_constructor(node_id, score):
 def keys_to_int(dic):
     return {int(key): value for key, value in dic.items()}
 
-def put_one_troop(game, i, description=None):
-    response = game.put_one_troop(i)
-    print(f"One troop put in id={i}" + f" ({description})" if description else '')
-    print(response)
 
 def get_strategic_nodes(game, sort=True, reverse=True):
     strategic_nodes_data = game.get_strategic_nodes()
@@ -59,7 +55,7 @@ def initializer(game: game.Game):
                     my_nodes.append(i)
 
                 if owner == -1:
-                    put_one_troop(game, i, description=f"level={level}")
+                    print(game.put_one_troop(i))
                     return
 
         checking_nodes = list(set(new_checking_nodes))
@@ -72,11 +68,11 @@ def initializer(game: game.Game):
 
     for i in my_strategic_nodes:
         if troops_count[i] < 3:
-            put_one_troop(game, i, description=f'strategic randomly')
+            print(game.put_one_troop(i))
             return
 
     i = random.choice(my_ordinary_nodes)
-    put_one_troop(game, i, description=f'ordinary randomly')
+    print(game.put_one_troop(i))
     return
 
 
