@@ -5,7 +5,11 @@ import random
 
 
 Node = namedtuple('Node', ['id', 'score'])
+MINIMUM_STRATEGY_TROOPS = 4
+MAXIMUM_ORDINARY_TROOPS = 2
 FORT_FLAG = False  # Has the fortress been completed yet?
+INITIAL_TURNS = 35
+MAIN_TURNS = 20
 
 id_getter = operator.attrgetter('id')
 score_getter = operator.attrgetter('score')
@@ -77,18 +81,26 @@ def initializer(game: game.Game):
         level += 1
 
 
-    # Then, check for our strategic nodes to have a minimum neccessary troops
+    # Then, check for our strategic nodes to have a minimum necessary troops
     troops_count = keys_to_int(game.get_number_of_troops())
     my_strategic_nodes = list(filter(lambda i: i in strategic_nodes_, my_nodes))
     my_ordinary_nodes = list(filter(lambda i: i not in strategic_nodes_, my_nodes))
 
     for i in my_strategic_nodes:
-        if troops_count[i] < 3:
+        if troops_count[i] < MINIMUM_STRATEGY_TROOPS:
             print(game.put_one_troop(i))
+            troops_count[i] += 1
             return
 
-    # Finally, put random troops
-    i = random.choice(my_ordinary_nodes)
+    # After that, we check for our ordinary nodes to have a maximum necessary troops
+    for i in my_ordinary_nodes:
+        if troops_count[i] < MAXIMUM_ORDINARY_TROOPS:
+            print(game.put_one_troop(i))
+            troops_count[i] += 1
+            return
+
+    # Finally, put troops on strategic nodes randomly
+    i = random.choice(my_strategic_nodes)
     print(game.put_one_troop(i))
     return
 
