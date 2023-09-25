@@ -13,6 +13,10 @@ score_getter = operator.attrgetter('score')
 def node_constructor(node_id, score):
     return Node(node_id, score)
 
+def node_constructor_packed(params):
+    print(params)
+    return node_constructor(*params)
+
 def keys_to_int(dic):
     return {int(key): value for key, value in dic.items()}
 
@@ -21,7 +25,7 @@ def get_strategic_nodes(game, sort=True, reverse=True):
     strategic_nodes_data = game.get_strategic_nodes()
     strategic_nodes_ = strategic_nodes_data['strategic_nodes']
     scores_ = strategic_nodes_data['score']
-    strategic_nodes = list(map(node_constructor, zip(strategic_nodes_, scores_)))
+    strategic_nodes = list(map(node_constructor_packed, zip(strategic_nodes_, scores_)))
     if sort:
         strategic_nodes.sort(key=lambda node: node.score, reverse=reverse)
     return strategic_nodes
