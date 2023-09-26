@@ -58,8 +58,9 @@ def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
     strategic_nodes = list(map(node_constructor_packed, zip(strategic_nodes_, scores_)))  # create a list of Node objects
     if sort:
         strategic_nodes.sort(key=lambda node: node.score, reverse=reverse)  # sort final nodes, by considering parameters
-    if player_id:
-        strategic_nodes = list(filter(lambda node: node.id == player_id, strategic_nodes))
+    if player_id is not None:
+        owners = keys_to_int(game.get_owners())
+        strategic_nodes = list(filter(lambda node: owners[node.id] == player_id, strategic_nodes))
     return strategic_nodes
 
 
