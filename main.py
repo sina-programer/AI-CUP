@@ -3,14 +3,22 @@ from src import game
 import operator
 import random
 
-
+# Initialize parameters
+MAXIMUM_INITIAL_ORDINARY_NODES = 10
 MINIMUM_STRATEGY_TROOPS = 4
 MAXIMUM_ORDINARY_TROOPS = 2
-FORT_FLAG = False  # Has the fortress been completed yet?
+
+# Fort parameters
+ORDINARY_TROOPS_AFTER_FORTRESS = 2
+MINIMUM_TROOPS_FOR_FORTRESS = 10
+
+# General parameters
 INITIAL_TURNS = 35
 MAIN_TURNS = 20
 PLAYERS = 3
 PLAYER_ID = None
+FORT_FLAG = False  # Has the fortress been completed yet?
+FORT_NODE = None
 
 Node = namedtuple('Node', ['id', 'score'])
 id_getter = operator.attrgetter('id')
@@ -25,6 +33,16 @@ def node_constructor_packed(params):
     """ Create 'Node' objects by packed (zipped) values """
 
     return node_constructor(*params)
+
+def initialize_player_id(game):
+    global PLAYER_ID
+    PLAYER_ID = game.get_player_id()['player_id']
+
+def initialize_fort_node(game):
+    global FORT_NODE
+
+    my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
+    FORT_NODE = my_strategic_nodes[0].id
 
 def keys_to_int(dic):
     """ Convert type of keys in input dictionary to integer """
@@ -48,10 +66,11 @@ def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
 def initializer(game: game.Game): 
     """ Handle the initialization phase """
 
-    global PLAYER_ID
-
     if not PLAYER_ID:
-        PLAYER_ID = game.get_player_id()['player_id']
+        initialize_player_id(game)
+
+    if not FORT_NODE:
+        initialize_fort_node(game)
 
     print('-'*50)
     print('Turn: ', game.get_turn_number()['turn_number'])
@@ -196,11 +215,9 @@ def fort_state(game):
 
     global FORT_FLAG
 
-    my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
     troops_count = keys_to_int(game.get_number_of_troops())
+    fort_troops = troops_count[FORT_NODE] - ORDINARY_TROOPS_AFTER_FORTRESS
 
-    for node in my_strategic_nodes:  # nodes are sorted by score
-        print(game.fort(node.id, troops_count[node.id]-1))
-        break
-
-    FORT_FLAG = True
+    if fort_troops >= MINIMUM_TROOPS_FOR_FORTRESS:
+        print(game.fort(FORT_NODE, fort_troops))
+        FORT_FLAG = True
