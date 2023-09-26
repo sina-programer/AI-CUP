@@ -15,6 +15,7 @@ MINIMUM_TROOPS_FOR_FORTRESS = 10
 # General parameters
 INITIAL_TURNS = 35
 MAIN_TURNS = 20
+TURN = 0
 PLAYERS = 3
 PLAYER_ID = None
 FORT_FLAG = False  # Has the fortress been completed yet?
@@ -44,6 +45,9 @@ def initialize_fort_node(game):
     my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
     FORT_NODE = my_strategic_nodes[0].id
 
+def get_player_turn(turn):
+    return ((turn-1)  // PLAYERS) + 1
+
 def keys_to_int(dic):
     """ Convert type of keys in input dictionary to integer """
 
@@ -67,14 +71,18 @@ def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
 def initializer(game: game.Game): 
     """ Handle the initialization phase """
 
+    global TURN
+
+    TURN = game.get_turn_number()['turn_number']
+    player_turn = get_player_turn(TURN)
+    print('-'*50)
+    print(f'Global Turn:  {TURN:<6} Player Turn:  {player_turn}')
+
     if not PLAYER_ID:
         initialize_player_id(game)
 
-    if not FORT_NODE:
+    if player_turn == 3:
         initialize_fort_node(game)
-
-    print('-'*50)
-    print('Turn: ', game.get_turn_number()['turn_number'])
 
     # Define essential variables along the turn
     strategic_nodes = get_strategic_nodes(game)
@@ -135,7 +143,11 @@ def initializer(game: game.Game):
 def turn(game):
     """ Handle the main phase """
 
-    print('Turn: ', game.get_turn_number()['turn_number'])
+    global TURN
+
+    TURN = game.get_turn_number()['turn_number']
+    player_turn = get_player_turn(TURN)
+    print(f'Global Turn:  {TURN:<6} Player Turn:  {player_turn}')
 
     put_troop_state(game)
     game.next_state()
