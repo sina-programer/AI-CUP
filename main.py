@@ -225,7 +225,7 @@ def turn(game):
     move_troop_state(game)
     game.next_state()
 
-    if not FORT_FLAG:
+    if (not FORT_FLAG) and (owners[FORT_NODE] == PLAYER_ID):
         fort_state(game)
     game.next_state()
 
@@ -296,8 +296,5 @@ def fort_state(game):
     global FORT_FLAG
 
     troops_count = keys_to_int(game.get_number_of_troops())
-    fort_troops = troops_count[FORT_NODE] - ORDINARY_TROOPS_AFTER_FORTRESS
-
-    if fort_troops >= MINIMUM_TROOPS_FOR_FORTRESS:
-        print(game.fort(FORT_NODE, fort_troops))
-        FORT_FLAG = True
+    print(game.fort(FORT_NODE, troops_count[FORT_NODE] - ORDINARY_TROOPS_AFTER_FORTRESS))
+    FORT_FLAG = True
