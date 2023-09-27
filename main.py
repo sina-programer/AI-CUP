@@ -200,11 +200,23 @@ def initializer(game: game.Game):
 def turn(game):
     """ Handle the main phase """
 
-    global TURN
+    global TURN, BOUNDARY_TROOPS, MAIN_NODE, MAIN_NEIGHBORS
 
     TURN = game.get_turn_number()['turn_number']
     player_turn = get_player_turn(TURN)
-    print(f'Global Turn:  {TURN:<6} Player Turn:  {player_turn}')
+    print(f'Global Turn:  {TURN:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
+
+    if player_turn == INITIAL_TURNS+1:
+        BOUNDARY_TROOPS += 1
+
+    if all(map(lambda x: x, MAIN_NEIGHBORS)):
+        MAIN_NEIGHBORS = get_neighbors(MAIN_NODE_FORMER, max_level=2)[2]
+
+    owners = keys_to_int(game.get_owners())
+    if owners[MAIN_NODE] == PLAYER_ID:
+        MAIN_NODE = MAIN_NODE_FORMER
+    else:
+        MAIN_NODE = get_main_alternative()
 
     put_troop_state(game)
     game.next_state()
