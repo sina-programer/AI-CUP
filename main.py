@@ -288,22 +288,12 @@ def move_troop_state(game):
 
     owners = keys_to_int(game.get_owners())
     troops_count = keys_to_int(game.get_number_of_troops())
-    max_troops = 0
-    max_node = -1
 
-    for i in owners.keys():
-        if owners[i] == PLAYER_ID:
-            if troops_count[i] > max_troops:
-                max_troops = troops_count[i]
-                max_node = i
-
-    try:
-        neighbors = game.get_reachable(max_node)['reachable']
-        neighbors.remove(max_node)
-        destination = random.choice(neighbors)
-        print(game.move_troop(max_node, destination, 1))
-    except Exception as error:
-        print('Error: ', error)
+    for boundary_node in get_boundary_nodes(game, MAIN_NODE):
+        node_troops = troops_count[boundary_node]
+        if node_troops < BOUNDARY_TROOPS:
+            print(game.move_troop(MAIN_NODE, boundary_node, min(troops_count[MAIN_NODE]-MAIN_NODE_TROOPS, BOUNDARY_TROOPS-node_troops+1)))
+            return
 
 def fort_state(game):
     """ Mange the fort state (4th state) """
