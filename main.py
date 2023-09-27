@@ -7,7 +7,7 @@ import random
 # Initialize parameters
 MAXIMUM_INITIAL_ORDINARY_NODES = 10
 MAIN_NODE_TROOPS = 4
-BOUNDARY_TROOPS = 2
+BOUNDARY_TROOPS = 2  # in first main phase turn, it increases by one (=3)
 
 # Fort parameters
 ORDINARY_TROOPS_AFTER_FORTRESS = 2
@@ -15,7 +15,6 @@ ORDINARY_TROOPS_AFTER_FORTRESS = 2
 # General parameters
 INITIAL_TURNS = 35
 MAIN_TURNS = 20
-TURN = 0
 PLAYERS = 3
 PLAYER_ID = None
 FORT_FLAG = False  # Has the fortress been completed yet?
@@ -138,10 +137,8 @@ def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
 def initializer(game: game.Game): 
     """ Handle the initialization phase """
 
-    global TURN
-
-    TURN = game.get_turn_number()['turn_number']
-    player_turn = get_player_turn(TURN)
+    turn = game.get_turn_number()['turn_number']
+    player_turn = get_player_turn(turn)
 
     if not PLAYER_ID:
         initialize_player_id(game)
@@ -150,7 +147,7 @@ def initializer(game: game.Game):
         initialize_fort_node(game)
 
     print('-'*50)
-    print(f'Global Turn:  {TURN:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
+    print(f'Global Turn:  {turn:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
 
     # Define essential variables along the turn
     strategic_nodes = get_strategic_nodes(game)
@@ -200,11 +197,11 @@ def initializer(game: game.Game):
 def turn(game):
     """ Handle the main phase """
 
-    global TURN, BOUNDARY_TROOPS, MAIN_NODE, MAIN_NEIGHBORS
+    global BOUNDARY_TROOPS, MAIN_NODE, MAIN_NEIGHBORS
 
-    TURN = game.get_turn_number()['turn_number']
-    player_turn = get_player_turn(TURN)
-    print(f'Global Turn:  {TURN:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
+    turn = game.get_turn_number()['turn_number']
+    player_turn = get_player_turn(turn)
+    print(f'Global Turn:  {turn:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
 
     if player_turn == INITIAL_TURNS+1:
         BOUNDARY_TROOPS += 1
