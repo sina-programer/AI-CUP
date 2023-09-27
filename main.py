@@ -230,20 +230,38 @@ def turn(game):
 
 
 def put_troop_state(game):
-    """ Mange the put-troop state (1st state) """
+    """ Manage the put-troop state (1st state) """
 
+    troops_count = keys_to_int(game.get_number_of_troops())
     owners = keys_to_int(game.get_owners())
 
-    for i in owners.keys():
-        if (owners[i] == -1) and game.get_number_of_troops_to_put()['number_of_troops']:
-            print(game.put_troop(i, 1))
+    for node in get_boundary_nodes(game, FORT_NODE):
+        node_troops = troops_count[node]
+        if node_troops < BOUNDARY_TROOPS:
+            if (reserved_troops := get_reserved_troops(game)):
+                print(game.put_troop(node, min(BOUNDARY_TROOPS-node_troops, reserved_troops)))
+            else:
+                return
 
-    list_of_my_nodes = []
-    for i in owners.keys():
-        if owners[i] == PLAYER_ID:
-            list_of_my_nodes.append(i)
+    main_boundaries = get_boundary_nodes(game, MAIN_NODE)
+    for node in main_boundaries:
+        node_troops = troops_count[node]
+        if node_troops < BOUNDARY_TROOPS:
+            if (reserved_troops := get_reserved_troops(game)):
+                print(game.put_troop(node, min(BOUNDARY_TROOPS-node_troops, reserved_troops)))
+            else:
+                return
 
-    print(game.put_troop(random.choice(list_of_my_nodes), game.get_number_of_troops_to_put()['number_of_troops']))
+    my_nodes = [node for node, owner in owners.items() if owner == PLAYER_ID]
+    for node in my_nodes:
+        node_troops = troops_count[node]
+        if (node not in main_boundaries) and (node_troops < INSIDE_TROOPS):
+            if (reserved_troops := get_reserved_troops(game)):
+                print(game.put_troop(node, min(INSIDE_TROOPS-node_troops, reserved_troops)))
+            else:
+                return
+
+    print(game.put_troop(MAIN_NODE, get_reserved_troops(game)//2))
 
 def attack_state(game):
     """ Mange the attack state (2nd state) """
@@ -295,3 +313,7 @@ def fort_state(game):
     troops_count = keys_to_int(game.get_number_of_troops())
     print(game.fort(FORT_NODE, troops_count[FORT_NODE] - ORDINARY_TROOPS_AFTER_FORTRESS))
     FORT_FLAG = True
+
+
+def get_reserved_troops(game):
+    return game.get_number_of_troops_to_put()['number_of_troops']
