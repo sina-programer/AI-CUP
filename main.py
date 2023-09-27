@@ -1,5 +1,6 @@
 from collections import namedtuple
 from src import game
+import itertools
 import operator
 import random
 
@@ -154,56 +155,45 @@ def initializer(game: game.Game):
     # Define essential variables along the turn
     strategic_nodes = get_strategic_nodes(game)
     strategic_nodes_ = list(map(id_getter, strategic_nodes))
-    owners = keys_to_int(game.get_owners())
-    adjacents = keys_to_int(game.get_adj())
-    my_nodes = []
-
-    # First, occupy vacant planets
-    level = 1
-    checked_nodes = set()
-    checking_nodes = strategic_nodes_.copy()
-    while checking_nodes:
-        new_checking_nodes = []
-
-        for i in checking_nodes:
-            if i not in checked_nodes:
-                checked_nodes.add(i)
-                neighbors = adjacents[i]
-                new_checking_nodes.extend(set(neighbors) - checked_nodes)
-                owner = owners[i]
-
-                if owner in [PLAYER_ID, -1]:
-                    my_nodes.append(i)
-
-                if owner == -1:
-                    print(game.put_one_troop(i))
-                    return
-
-        checking_nodes = list(set(new_checking_nodes))
-        level += 1
-
-
-    # Then, check for our strategic nodes to have a minimum necessary troops
     troops_count = keys_to_int(game.get_number_of_troops())
+    owners = keys_to_int(game.get_owners())
+    my_nodes = [node for node, owner in owners.items() if owner == PLAYER_ID]
     my_strategic_nodes = list(filter(lambda i: i in strategic_nodes_, my_nodes))
     my_ordinary_nodes = list(filter(lambda i: i not in my_strategic_nodes, my_nodes))
+    print('Nodes: ', len(my_nodes))
 
-    for i in my_strategic_nodes:
-        if troops_count[i] < MINIMUM_STRATEGY_TROOPS:
+    # first check for empty strategic nodes
+    for i in strategic_nodes_:
+        if owners[i] == -1:
             print(game.put_one_troop(i))
-            troops_count[i] += 1
             return
 
-    # After that, we check for our ordinary nodes to have a maximum necessary troops
-    for i in my_ordinary_nodes:
-        if troops_count[i] < MAXIMUM_ORDINARY_TROOPS:
-            print(game.put_one_troop(i))
-            troops_count[i] += 1
+    # First, occupy empty planets
+    if len(my_ordinary_nodes) < MAXIMUM_INITIAL_ORDINARY_NODES:
+        for neighbor in get_neighbors(game, MAIN_NODE, flat=True):
+            if owners[neighbor] == -1:
+                print(game.put_one_troop(neighbor))
+                return
+
+    # Next, occupy empty planets
+    for neighbor in get_neighbors(game, FORT_NODE, max_level=1, flat=True):
+        if owners[neighbor] == -1:
+            print(game.put_one_troop(neighbor))
             return
+
+    # boost the boundary
+    for boundary_node in get_boundary_nodes(game, MAIN_NODE):
+        if troops_count[boundary_node] < BOUNDARY_TROOPS:
+            print(game.put_one_troop(boundary_node))
+            return
+
+    # put on strategics
+    if troops_count[MAIN_NODE] < MAIN_NODE_TROOPS:
+        print(game.put_one_troop(MAIN_NODE))
+        return
 
     # Finally, put troops on strategic nodes randomly
-    i = random.choice(my_strategic_nodes)
-    print(game.put_one_troop(i))
+    print(game.put_one_troop(FORT_NODE))
     return
 
 
