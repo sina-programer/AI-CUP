@@ -264,29 +264,22 @@ def put_troop_state(game):
     print(game.put_troop(MAIN_NODE, get_reserved_troops(game)//2))
 
 def attack_state(game):
-    """ Mange the attack state (2nd state) """
+    """ Manage the attack state (2nd state) """
 
     owners = keys_to_int(game.get_owners())
     troops_count = keys_to_int(game.get_number_of_troops())
     adjacents = keys_to_int(game.get_adj())
-    max_troops = 0
-    max_node = -1
 
-    for i in owners.keys():
-        if owners[i] == PLAYER_ID:
-            if troops_count[i] > max_troops:
-                max_troops = troops_count[i]
-                max_node = i
-
-    for i in adjacents[max_node]:
-        if (owners[i] != PLAYER_ID) and (owners[i] != -1):
-            print(game.attack(max_node, i, 1, 0.5))
-            break
+    for boundary_node in get_boundary_nodes(game, MAIN_NODE):
+        neighbors = adjacents[boundary_node]
+        enemy_neighbors = list(filter(lambda n: owners[n] not in [-1, PLAYER_ID], neighbors))
+        enemy_node = sorted(enemy_neighbors, key=lambda n: troops_count[n])[-1]
+        print(game.attack(boundary_node, enemy_node, .95, .5))
+        return
 
 def move_troop_state(game):
     """ Mange the move-troop state (3rd state) """
 
-    owners = keys_to_int(game.get_owners())
     troops_count = keys_to_int(game.get_number_of_troops())
 
     for boundary_node in get_boundary_nodes(game, MAIN_NODE):
