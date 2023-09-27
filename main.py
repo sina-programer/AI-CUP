@@ -43,7 +43,7 @@ def initialize_player_id(game):
     PLAYER_ID = game.get_player_id()['player_id']
 
 def initialize_fort_node(game):
-    global FORT_NODE, MAIN_NODE, MAIN_NEIGHBORS
+    global FORT_NODE, MAIN_NODE, MAIN_NEIGHBORS, MAIN_NODE_FORMER
 
     adjacents = keys_to_int(game.get_adj())
     my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
@@ -210,7 +210,7 @@ def turn(game):
         BOUNDARY_TROOPS += 1
 
     if all(map(lambda x: x, MAIN_NEIGHBORS)):
-        MAIN_NEIGHBORS = get_neighbors(MAIN_NODE_FORMER, max_level=2)[2]
+        MAIN_NEIGHBORS = get_neighbors(game, MAIN_NODE_FORMER, max_level=2)[2]
 
     owners = keys_to_int(game.get_owners())
     if owners[MAIN_NODE] == PLAYER_ID:
