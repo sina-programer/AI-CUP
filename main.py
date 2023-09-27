@@ -5,12 +5,11 @@ import random
 
 # Initialize parameters
 MAXIMUM_INITIAL_ORDINARY_NODES = 10
-MINIMUM_STRATEGY_TROOPS = 4
-MAXIMUM_ORDINARY_TROOPS = 2
+MAIN_NODE_TROOPS = 4
+BOUNDARY_TROOPS = 2
 
 # Fort parameters
 ORDINARY_TROOPS_AFTER_FORTRESS = 2
-MINIMUM_TROOPS_FOR_FORTRESS = 10
 
 # General parameters
 INITIAL_TURNS = 35
@@ -20,6 +19,9 @@ PLAYERS = 3
 PLAYER_ID = None
 FORT_FLAG = False  # Has the fortress been completed yet?
 FORT_NODE = None
+MAIN_NODE = None
+MAIN_NEIGHBORS = None
+MAIN_NODE_FORMER = None
 
 Node = namedtuple('Node', ['id', 'score'])
 id_getter = operator.attrgetter('id')
@@ -40,10 +42,14 @@ def initialize_player_id(game):
     PLAYER_ID = game.get_player_id()['player_id']
 
 def initialize_fort_node(game):
-    global FORT_NODE
+    global FORT_NODE, MAIN_NODE, MAIN_NEIGHBORS
 
+    adjacents = keys_to_int(game.get_adj())
     my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
     FORT_NODE = my_strategic_nodes[0].id
+    MAIN_NODE = my_strategic_nodes[1].id
+    MAIN_NEIGHBORS = adjacents[MAIN_NODE]
+    MAIN_NODE_FORMER = MAIN_NODE
 
 def get_player_turn(turn):
     return ((turn-1)  // PLAYERS) + 1
@@ -52,6 +58,66 @@ def keys_to_int(dic):
     """ Convert type of keys in input dictionary to integer """
 
     return {int(key): value for key, value in dic.items()}
+
+def get_main_alternative():
+    troops_count = keys_to_int(game.get_number_of_troops())
+    alternative = random.choice(MAIN_NEIGHBORS)
+    alternative_troops = troops_count[alternative]
+    for node in MAIN_NEIGHBORS:
+        node_troops = troops_count[node]
+        if node_troops > alternative_troops:
+            alternative = node
+            alternative_troops = node_troops
+
+    return alternative
+
+def get_boundary_nodes(game, node_id):
+    owners = keys_to_int(game.get_owners())
+    adjacents = keys_to_int(game.get_adj())
+    checked_nodes = set()
+    boundaries = []
+
+    neighbors = adjacents[node_id]
+    while neighbors:
+        own_neighbors = list(filter(lambda i: owners[i] == PLAYER_ID, neighbors))
+        new_neighbors = []
+
+        for node in own_neighbors:
+            if node not in checked_nodes:
+                checked_nodes.add(node)
+                node_neighbors = adjacents[node]
+                new_neighbors.extend(node_neighbors)
+
+                if any(list(map(lambda x: owners[x] != PLAYER_ID, node_neighbors))):
+                    boundaries.append(node)
+
+        neighbors = list(set(new_neighbors))
+
+    return boundaries
+
+def get_neighbors(game, node_id, max_level=0, flat=False):
+    adjacents = keys_to_int(game.get_adj())
+    checked_nodes = set()
+    neighbors = {}
+    level = 1
+
+    checking_nodes = adjacents[node_id]
+    while (level <= max_level) and checking_nodes:
+        neighbors[level] = checking_nodes
+        new_checking_nodes = []
+
+        for i in checking_nodes:
+            if i not in checked_nodes:
+                checked_nodes.add(i)
+                new_checking_nodes.extend(set(adjacents[i]) - checked_nodes)
+
+        checking_nodes = list(set(new_checking_nodes))
+        level += 1
+
+    if flat:
+        return list(itertools.chain.from_iterable(neighbors.values()))
+
+    return neighbors
 
 def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
     """ Return all the strategic nodes as 'Node' objects. They also can be ordered by setting parameters """
@@ -75,14 +141,15 @@ def initializer(game: game.Game):
 
     TURN = game.get_turn_number()['turn_number']
     player_turn = get_player_turn(TURN)
-    print('-'*50)
-    print(f'Global Turn:  {TURN:<6} Player Turn:  {player_turn}')
 
     if not PLAYER_ID:
         initialize_player_id(game)
 
-    if player_turn == 3:
+    if player_turn == 3:  # after occupying our two strategic nodes
         initialize_fort_node(game)
+
+    print('-'*50)
+    print(f'Global Turn:  {TURN:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
 
     # Define essential variables along the turn
     strategic_nodes = get_strategic_nodes(game)
