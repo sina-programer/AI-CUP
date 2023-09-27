@@ -4,15 +4,13 @@ import itertools
 import operator
 import random
 
-# Initialize parameters
+
 MAXIMUM_INITIAL_ORDINARY_NODES = 10
 MAIN_NODE_TROOPS = 4
 BOUNDARY_TROOPS = 2  # in first main phase turn, it increases by one (=3)
-
-# Fort parameters
+INSIDE_TROOPS = 2
 ORDINARY_TROOPS_AFTER_FORTRESS = 2
 
-# General parameters
 INITIAL_TURNS = 35
 MAIN_TURNS = 20
 PLAYERS = 3
@@ -59,7 +57,7 @@ def keys_to_int(dic):
 
     return {int(key): value for key, value in dic.items()}
 
-def get_main_alternative():
+def get_main_alternative(game):
     troops_count = keys_to_int(game.get_number_of_troops())
     alternative = random.choice(MAIN_NEIGHBORS)
     alternative_troops = troops_count[alternative]
@@ -213,7 +211,7 @@ def turn(game):
     if owners[MAIN_NODE] == PLAYER_ID:
         MAIN_NODE = MAIN_NODE_FORMER
     else:
-        MAIN_NODE = get_main_alternative()
+        MAIN_NODE = get_main_alternative(game)
 
     put_troop_state(game)
     game.next_state()
