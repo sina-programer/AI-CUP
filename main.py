@@ -44,8 +44,9 @@ def initialize_fort_node(game):
 
     adjacents = keys_to_int(game.get_adj())
     my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
-    FORT_NODE = my_strategic_nodes[0].id
-    MAIN_NODE = my_strategic_nodes[1].id
+    my_strategic_nodes_ = list(my_strategic_nodes.keys())
+    FORT_NODE = my_strategic_nodes_[0]
+    MAIN_NODE = my_strategic_nodes_[1]
     MAIN_NEIGHBORS = adjacents[MAIN_NODE]
     MAIN_NODE_FORMER = MAIN_NODE
 
@@ -120,16 +121,18 @@ def get_neighbors(game, node_id, max_level=0, flat=False):
 def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
     """ Return all the strategic nodes as 'Node' objects. They also can be ordered by setting parameters """
 
-    strategic_nodes_data = game.get_strategic_nodes()  # fetch strategic nodes data
-    strategic_nodes_ = strategic_nodes_data['strategic_nodes']
-    scores_ = strategic_nodes_data['score']
-    strategic_nodes = list(map(node_constructor_packed, zip(strategic_nodes_, scores_)))  # create a list of Node objects
+    strategic_nodes_data = game.get_strategic_nodes()
+    strategic_nodes = strategic_nodes_data['strategic_nodes']
+    strategic_scores = strategic_nodes_data['score']
+    strategics_data = list(zip(strategic_nodes, strategic_scores))
+
     if sort:
-        strategic_nodes.sort(key=lambda node: node.score, reverse=reverse)  # sort final nodes, by considering parameters
+        strategics_data.sort(key=lambda x: x[1], reverse=reverse)
     if player_id is not None:
         owners = keys_to_int(game.get_owners())
-        strategic_nodes = list(filter(lambda node: owners[node.id] == player_id, strategic_nodes))
-    return strategic_nodes
+        strategics_data = list(filter(lambda x: owners[x[0]] == player_id, strategics_data))
+
+    return OrderedDict(strategics_data)
 
 
 def initializer(game: game.Game): 
@@ -149,7 +152,7 @@ def initializer(game: game.Game):
 
     # Define essential variables along the turn
     strategic_nodes = get_strategic_nodes(game)
-    strategic_nodes_ = list(map(id_getter, strategic_nodes))
+    strategic_nodes_ = list(strategic_nodes.keys())
     troops_count = keys_to_int(game.get_number_of_troops())
     owners = keys_to_int(game.get_owners())
     my_nodes = [node for node, owner in owners.items() if owner == PLAYER_ID]
