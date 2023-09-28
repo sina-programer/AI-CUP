@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import OrderedDict
 from typing import Dict, List
 from src import game
 import itertools
@@ -19,12 +19,112 @@ PLAYER_ID = None
 FORT_FLAG = False  # Has the fortress been completed yet?
 FORT_NODE = None
 MAIN_NODE = None
-MAIN_NODE_FORMER = None
+MAIN_NODE_FORMER = None  # the original main node
 MAP : Dict[int, Dict[int, List[int]]] = {}  # {node: {level: [related neighbors]}}
 
-Node = namedtuple('Node', ['id', 'score'])
-id_getter = operator.attrgetter('id')
-score_getter = operator.attrgetter('score')
+
+class Node:
+    def __init__(self, node_id, owner=-1, troops=0, fort_troops=0, adjacents=None, score=None):
+        self.node_id = node_id
+        self.owner = owner
+        self.troops = troops
+        self.fort_troops = fort_troops
+        self.adjacents = adjacents
+        self.score = score
+
+    @property
+    def is_strategic(self):
+        return self.score is not None
+
+    @property
+    def is_mine(self):
+        return self.owner == PLAYER_ID
+
+    @property
+    def is_forted(self):
+        return self.fort_troops > 0
+
+    def __repr__(self):
+        return f"Node(owner={self.owner}, troops={self.troops}, fort-troops={self.fort_troops}, adjacents={self.adjacents}, score={self.score})"
+
+
+class Nodes:
+    def __init__(self, game, nodes=None, name=None):
+        self.game = game
+        self.nodes = nodes if nodes else Nodes.get_nodes(self.game)
+        self.name = name
+
+    def get_integrated(self, node_id):
+        integrated_nodes = []
+        for neighbors in MAP[node_id].values():
+            integrated_nodes.extend(neighbors)
+
+        new_nodes = conditional_getter(self.nodes, function=lambda node: node.id in integrated_nodes)
+        another = self.copy()
+        another.nodes = new_nodes
+        return another
+
+    @classmethod
+    def get_nodes(cls, game):
+        strategic_nodes = Nodes.get_strategic_nodes_dict(game)
+        fort_troops = keys_to_int(game.get_number_of_fort_troops())
+        troops_count = keys_to_int(game.get_number_of_troops())
+        adjacents = keys_to_int(game.get_adj())
+        owners = keys_to_int(game.get_owners())
+        nodes = []
+
+        for i in owners:
+            nodes.append(
+                Node(
+                    i,
+                    owner=owners[i],
+                    troops=troops_count[i],
+                    fort_troops=fort_troops[i],
+                    adjacents=adjacents[i],
+                    score=strategic_nodes.get(i, None)
+                )
+            )
+
+        return nodes
+
+    @staticmethod
+    def get_strategic_nodes_dict(game, sort=True, reverse=True, player_id=None):
+        """ Return all the strategic nodes as dict. They also can be ordered by setting parameters """
+
+        strategic_nodes_data = game.get_strategic_nodes()
+        strategic_nodes = strategic_nodes_data['strategic_nodes']
+        strategic_scores = strategic_nodes_data['score']
+        strategics_data = list(zip(strategic_nodes, strategic_scores))
+
+        if sort:
+            strategics_data.sort(key=lambda x: x[1], reverse=reverse)
+        if player_id is not None:
+            owners = keys_to_int(game.get_owners())
+            strategics_data = list(filter(lambda x: owners[x[0]] == player_id, strategics_data))
+
+        return OrderedDict(strategics_data)
+
+    def filter(self, name=None, **kwargs):
+        return Nodes(self.game, nodes=conditional_getter(self.nodes, **kwargs), name=name)
+
+    def get_attribute(self, attribute):
+        return list(map(operator.attrgetter(attribute), self.nodes))
+
+    def by_id(self, node_id):
+        return self(node_id=node_id)[0]
+
+    def __contains__(self, node_id):
+        return node_id in self.get_attribute('node_id')
+
+    def __len__(self):
+        return len(self.nodes)
+
+    def __call__(self, **kwargs):
+        return conditional_getter(self.nodes, **kwargs)
+
+    def __repr__(self):
+        return f"{self.name if self.name else 'Nodes'}(length={len(self)})"
+
 
 def node_constructor(node_id, score):
     """ Create 'Node' objects by receiving parameters """
@@ -44,7 +144,7 @@ def initialize_fort_node(game):
     global FORT_NODE, MAIN_NODE, MAIN_NODE_FORMER
 
     adjacents = keys_to_int(game.get_adj())
-    my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
+    my_strategic_nodes = Nodes.get_strategic_nodes_dict(game, player_id=PLAYER_ID)
     my_strategic_nodes_ = list(my_strategic_nodes.keys())
     FORT_NODE = my_strategic_nodes_[0]
     MAIN_NODE = my_strategic_nodes_[1]
@@ -82,18 +182,6 @@ def keys_to_int(dic):
 
     return {int(key): value for key, value in dic.items()}
 
-def get_main_alternative(game):
-    troops_count = keys_to_int(game.get_number_of_troops())
-    alternative = random.choice(MAIN_NEIGHBORS)
-    alternative_troops = troops_count[alternative]
-    for node in MAIN_NEIGHBORS:
-        node_troops = troops_count[node]
-        if node_troops > alternative_troops:
-            alternative = node
-            alternative_troops = node_troops
-
-    return alternative
-
 def get_boundary_nodes(game, node_id):
     owners = keys_to_int(game.get_owners())
     adjacents = keys_to_int(game.get_adj())
@@ -117,22 +205,6 @@ def get_boundary_nodes(game, node_id):
         neighbors = list(set(new_neighbors))
 
     return boundaries
-
-def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
-    """ Return all the strategic nodes as 'Node' objects. They also can be ordered by setting parameters """
-
-    strategic_nodes_data = game.get_strategic_nodes()
-    strategic_nodes = strategic_nodes_data['strategic_nodes']
-    strategic_scores = strategic_nodes_data['score']
-    strategics_data = list(zip(strategic_nodes, strategic_scores))
-
-    if sort:
-        strategics_data.sort(key=lambda x: x[1], reverse=reverse)
-    if player_id is not None:
-        owners = keys_to_int(game.get_owners())
-        strategics_data = list(filter(lambda x: owners[x[0]] == player_id, strategics_data))
-
-    return OrderedDict(strategics_data)
 
 def get_reserved_troops(game):
     return game.get_number_of_troops_to_put()['number_of_troops']
