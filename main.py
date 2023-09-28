@@ -128,6 +128,18 @@ class Nodes:
     def by_id(self, node_id):
         return self(node_id=node_id)[0]
 
+    def update(self, owner=True, troops=True, fort_troops=True):
+        new_data = {
+            'owner': keys_to_int(self.game.get_owners()) if owner else None,
+            'troops': keys_to_int(self.game.get_number_of_troops()) if troops else None,
+            'fort_troops': keys_to_int(self.game.get_number_of_fort_troops()) if fort_troops else None
+        }
+
+        for param, values in new_data.items():
+            if values:
+                for node in self.nodes:
+                    setattr(node, param, values[node.node_id])
+
     def copy(self):
         return copy.copy(self)
 
