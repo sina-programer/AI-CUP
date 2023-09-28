@@ -243,31 +243,35 @@ def put_troop_state(game):
 
     for node in get_boundary_nodes(game, FORT_NODE):
         node_troops = troops_count[node]
-        if node_troops < BOUNDARY_TROOPS:
-            if (reserved_troops := get_reserved_troops(game)):
-                print(game.put_troop(node, min(BOUNDARY_TROOPS-node_troops, reserved_troops)))
+        put_troops = BOUNDARY_TROOPS - node_troops
+        if put_troops >= 1:
+            if (reserved_troops := get_reserved_troops(game)) >= 1:
+                print(game.put_troop(node, min(put_troops, reserved_troops)))
             else:
                 return
 
     main_boundaries = get_boundary_nodes(game, MAIN_NODE)
     for node in main_boundaries:
         node_troops = troops_count[node]
-        if node_troops < BOUNDARY_TROOPS:
-            if (reserved_troops := get_reserved_troops(game)):
-                print(game.put_troop(node, min(BOUNDARY_TROOPS-node_troops, reserved_troops)))
+        put_troops = BOUNDARY_TROOPS - node_troops
+        if put_troops >= 1:
+            if (reserved_troops := get_reserved_troops(game)) >= 1:
+                print(game.put_troop(node, min(put_troops, reserved_troops)))
             else:
                 return
 
     my_nodes = [node for node, owner in owners.items() if owner == PLAYER_ID]
     for node in my_nodes:
         node_troops = troops_count[node]
-        if (node not in main_boundaries) and (node_troops < INSIDE_TROOPS):
-            if (reserved_troops := get_reserved_troops(game)):
-                print(game.put_troop(node, min(INSIDE_TROOPS-node_troops, reserved_troops)))
+        put_troops = BOUNDARY_TROOPS - node_troops
+        if put_troops >= 1:
+            if (reserved_troops := get_reserved_troops(game)) >= 1:
+                print(game.put_troop(node, min(put_troops, reserved_troops)))
             else:
                 return
 
-    print(game.put_troop(MAIN_NODE, get_reserved_troops(game)//2))
+    if (reserved_troops := get_reserved_troops(game)) >= 1:
+        print(game.put_troop(origin_node, min(troops, reserved_troops)))
 
 def attack_state(game):
     """ Manage the attack state (2nd state) """
@@ -290,9 +294,12 @@ def move_troop_state(game):
 
     for boundary_node in get_boundary_nodes(game, MAIN_NODE):
         node_troops = troops_count[boundary_node]
-        if node_troops < BOUNDARY_TROOPS:
-            print(game.move_troop(MAIN_NODE, boundary_node, min(troops_count[MAIN_NODE]-MAIN_NODE_TROOPS, BOUNDARY_TROOPS-node_troops+1)))
-            return
+        put_troops = BOUNDARY_TROOPS - node_troops
+        if put_troops >= 1:
+            if (reserved_troops := troops_count[MAIN_NODE]) >= 1:
+                print(game.move_troop(MAIN_NODE, boundary_node, min(put_troops, reserved_troops)))
+            else:
+                return
 
 def fort_state(game):
     """ Mange the fort state (4th state) """
