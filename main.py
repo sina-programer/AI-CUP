@@ -20,6 +20,7 @@ FORT_NODE = None
 MAIN_NODE = None
 MAIN_NEIGHBORS = None
 MAIN_NODE_FORMER = None
+MAP : Dict[int, Dict[int, List[int]]] = {}  # {node: {level: [related neighbors]}}
 
 Node = namedtuple('Node', ['id', 'score'])
 id_getter = operator.attrgetter('id')
@@ -49,6 +50,24 @@ def initialize_fort_node(game):
     MAIN_NODE = my_strategic_nodes_[1]
     MAIN_NEIGHBORS = adjacents[MAIN_NODE]
     MAIN_NODE_FORMER = MAIN_NODE
+
+def initialize_map(game, level):
+    global MAP
+
+    adjacents = keys_to_int(game.get_adj())
+    for node_id in adjacents:
+        if level == 1:
+            MAP[node_id] = {
+                0: [node_id],
+                1: adjacents[node_id]
+            }
+
+        else:
+            neighbors = set()
+            for neighbor in MAP[node_id][level-1]:
+                neighbors = neighbors.union(adjacents[neighbor])
+            neighbors -= set(MAP[node_id][level-1] + MAP[node_id][level-2])
+            MAP[node_id][level] = sorted(list(neighbors))
 
 def conditional_getter(objects, function=None, **conditions):
     if function:
@@ -155,6 +174,8 @@ def initializer(game: game.Game):
 
     if player_turn == 3:  # after occupying our two strategic nodes
         initialize_fort_node(game)
+
+    initialize_map(game, level=player_turn)
 
     print('-'*50)
     print(f'Global Turn:  {turn:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
