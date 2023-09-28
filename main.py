@@ -1,4 +1,5 @@
 from collections import namedtuple
+from typing import Dict, List
 from src import game
 import itertools
 import operator
@@ -18,7 +19,6 @@ PLAYER_ID = None
 FORT_FLAG = False  # Has the fortress been completed yet?
 FORT_NODE = None
 MAIN_NODE = None
-MAIN_NEIGHBORS = None
 MAIN_NODE_FORMER = None
 MAP : Dict[int, Dict[int, List[int]]] = {}  # {node: {level: [related neighbors]}}
 
@@ -119,30 +119,6 @@ def get_boundary_nodes(game, node_id):
 
     return boundaries
 
-def get_neighbors(game, node_id, max_level=0, flat=False):
-    adjacents = keys_to_int(game.get_adj())
-    checked_nodes = set()
-    neighbors = {}
-    level = 1
-
-    checking_nodes = adjacents[node_id]
-    while (level <= max_level) and checking_nodes:
-        neighbors[level] = checking_nodes
-        new_checking_nodes = []
-
-        for i in checking_nodes:
-            if i not in checked_nodes:
-                checked_nodes.add(i)
-                new_checking_nodes.extend(set(adjacents[i]) - checked_nodes)
-
-        checking_nodes = list(set(new_checking_nodes))
-        level += 1
-
-    if flat:
-        return list(itertools.chain.from_iterable(neighbors.values()))
-
-    return neighbors
-
 def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
     """ Return all the strategic nodes as 'Node' objects. They also can be ordered by setting parameters """
 
@@ -228,7 +204,7 @@ def initializer(game: game.Game):
 def turn(game):
     """ Handle the main phase """
 
-    global BOUNDARY_TROOPS, MAIN_NODE, MAIN_NEIGHBORS
+    global BOUNDARY_TROOPS, MAIN_NODE
 
     turn = game.get_turn_number()['turn_number']
     player_turn = get_player_turn(turn)
@@ -236,9 +212,6 @@ def turn(game):
 
     if player_turn == INITIAL_TURNS+1:
         BOUNDARY_TROOPS += 1
-
-    if all(map(lambda x: x, MAIN_NEIGHBORS)):
-        MAIN_NEIGHBORS = get_neighbors(game, MAIN_NODE_FORMER, max_level=2)[2]
 
     owners = keys_to_int(game.get_owners())
     if owners[MAIN_NODE] == PLAYER_ID:
