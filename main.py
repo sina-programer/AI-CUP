@@ -4,6 +4,7 @@ from src import game
 import itertools
 import operator
 import random
+import copy
 
 
 MAXIMUM_INITIAL_ORDINARY_NODES = 10
@@ -44,6 +45,9 @@ class Node:
     def is_forted(self):
         return self.fort_troops > 0
 
+    def copy(self):
+        return copy.copy(self)
+
     def __repr__(self):
         return f"Node(owner={self.owner}, troops={self.troops}, fort-troops={self.fort_troops}, adjacents={self.adjacents}, score={self.score})"
 
@@ -59,9 +63,20 @@ class Nodes:
         for neighbors in MAP[node_id].values():
             integrated_nodes.extend(neighbors)
 
-        new_nodes = conditional_getter(self.nodes, function=lambda node: node.id in integrated_nodes)
-        another = self.copy()
-        another.nodes = new_nodes
+        return self.filter(owner=PLAYER_ID, function=lambda node: node.node_id in integrated_nodes)
+
+    def get_boundaries(self, node_id):
+        another = self.get_integrated(node_id)
+        boundary_nodes = []
+
+        for node in another():
+            for adj_id in node.adjacents:
+                adj_node = self.by_id(adj_id)
+                if adj_node.owner != PLAYER_ID:
+                    boundary_nodes.append(node)
+                    break
+
+        another.nodes = boundary_nodes
         return another
 
     @classmethod
@@ -113,6 +128,9 @@ class Nodes:
     def by_id(self, node_id):
         return self(node_id=node_id)[0]
 
+    def copy(self):
+        return copy.copy(self)
+
     def __contains__(self, node_id):
         return node_id in self.get_attribute('node_id')
 
@@ -125,16 +143,6 @@ class Nodes:
     def __repr__(self):
         return f"{self.name if self.name else 'Nodes'}(length={len(self)})"
 
-
-def node_constructor(node_id, score):
-    """ Create 'Node' objects by receiving parameters """
-
-    return Node(node_id, score)
-
-def node_constructor_packed(params):
-    """ Create 'Node' objects by packed (zipped) values """
-
-    return node_constructor(*params)
 
 def initialize_player_id(game):
     global PLAYER_ID
@@ -182,30 +190,6 @@ def keys_to_int(dic):
 
     return {int(key): value for key, value in dic.items()}
 
-def get_boundary_nodes(game, node_id):
-    owners = keys_to_int(game.get_owners())
-    adjacents = keys_to_int(game.get_adj())
-    checked_nodes = set()
-    boundaries = []
-
-    neighbors = adjacents[node_id]
-    while neighbors:
-        own_neighbors = list(filter(lambda i: owners[i] == PLAYER_ID, neighbors))
-        new_neighbors = []
-
-        for node in own_neighbors:
-            if node not in checked_nodes:
-                checked_nodes.add(node)
-                node_neighbors = adjacents[node]
-                new_neighbors.extend(node_neighbors)
-
-                if any(list(map(lambda x: owners[x] != PLAYER_ID, node_neighbors))):
-                    boundaries.append(node)
-
-        neighbors = list(set(new_neighbors))
-
-    return boundaries
-
 def get_reserved_troops(game):
     return game.get_number_of_troops_to_put()['number_of_troops']
 
@@ -227,44 +211,42 @@ def initializer(game: game.Game):
     print('-'*50)
     print(f'Global Turn:  {turn:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
 
-    # Define essential variables along the turn
-    strategic_nodes = get_strategic_nodes(game)
-    strategic_nodes_ = list(strategic_nodes.keys())
-    troops_count = keys_to_int(game.get_number_of_troops())
-    owners = keys_to_int(game.get_owners())
-    my_nodes = [node for node, owner in owners.items() if owner == PLAYER_ID]
-    my_strategic_nodes = list(filter(lambda i: i in strategic_nodes_, my_nodes))
-    my_ordinary_nodes = list(filter(lambda i: i not in my_strategic_nodes, my_nodes))
-    print('Nodes: ', len(my_nodes))
+    nodes = Nodes(game, name='EntireNodes')
+    my_nodes = nodes.filter(is_mine=True, name='MyNodes')
+    strategic_nodes = nodes.filter(is_strategic=True, name='StrategicNodes')
+    my_ordinary_nodes = my_nodes.filter(is_strategic=False, name='MyOrdinaryNodes')
 
     # first check for empty strategic nodes
-    for i in strategic_nodes_:
-        if owners[i] == -1:
-            print(game.put_one_troop(i))
-            return
+    for node in strategic_nodes(owner=-1):
+        print(game.put_one_troop(node.node_id))
+        return
 
     # First, occupy empty planets
     if len(my_ordinary_nodes) < MAXIMUM_INITIAL_ORDINARY_NODES:
-        for neighbor in get_neighbors(game, MAIN_NODE, flat=True):
-            if owners[neighbor] == -1:
-                print(game.put_one_troop(neighbor))
-                return
+        for neighbors in MAP[MAIN_NODE].values():
+            for neighbor in neighbors:
+                node = nodes.by_id(neighbor)
+                if node.owner == -1:
+                    print(game.put_one_troop(node.node_id))
+                    return
 
     # Next, occupy empty planets
-    for neighbor in get_neighbors(game, FORT_NODE, max_level=1, flat=True):
-        if owners[neighbor] == -1:
-            print(game.put_one_troop(neighbor))
+    for neighbor in MAP[FORT_NODE][1]:
+        node = nodes.by_id(neighbor)
+        if node.owner == -1:
+            print(game.put_one_troop(node.node_id))
             return
 
     # boost the boundary
-    for boundary_node in get_boundary_nodes(game, MAIN_NODE):
-        if troops_count[boundary_node] < BOUNDARY_TROOPS:
-            print(game.put_one_troop(boundary_node))
+    for node in nodes.get_boundaries(MAIN_NODE)():
+        if node.troops < BOUNDARY_TROOPS:
+            print(game.put_one_troop(node.node_id))
             return
 
     # put on strategics
-    if troops_count[MAIN_NODE] < MAIN_NODE_TROOPS:
-        print(game.put_one_troop(MAIN_NODE))
+    node = my_nodes.by_id(MAIN_NODE)
+    if node.troops < MAIN_NODE_TROOPS:
+        print(game.put_one_troop(node.node_id))
         return
 
     # Finally, put troops on strategic nodes randomly
