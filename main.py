@@ -41,14 +41,13 @@ def initialize_player_id(game):
     PLAYER_ID = game.get_player_id()['player_id']
 
 def initialize_fort_node(game):
-    global FORT_NODE, MAIN_NODE, MAIN_NEIGHBORS, MAIN_NODE_FORMER
+    global FORT_NODE, MAIN_NODE, MAIN_NODE_FORMER
 
     adjacents = keys_to_int(game.get_adj())
     my_strategic_nodes = get_strategic_nodes(game, player_id=PLAYER_ID)
     my_strategic_nodes_ = list(my_strategic_nodes.keys())
     FORT_NODE = my_strategic_nodes_[0]
     MAIN_NODE = my_strategic_nodes_[1]
-    MAIN_NEIGHBORS = adjacents[MAIN_NODE]
     MAIN_NODE_FORMER = MAIN_NODE
 
 def initialize_map(game, level):
