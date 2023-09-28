@@ -50,6 +50,12 @@ def initialize_fort_node(game):
     MAIN_NEIGHBORS = adjacents[MAIN_NODE]
     MAIN_NODE_FORMER = MAIN_NODE
 
+def conditional_getter(objects, function=None, **conditions):
+    if function:
+        objects = list(filter(function, objects))
+
+    return list(filter(lambda obj: all(getattr(obj, key) == value for key, value in conditions.items()), objects))
+
 def get_player_turn(turn):
     return ((turn-1)  // PLAYERS) + 1
 
@@ -133,6 +139,9 @@ def get_strategic_nodes(game, sort=True, reverse=True, player_id=None):
         strategics_data = list(filter(lambda x: owners[x[0]] == player_id, strategics_data))
 
     return OrderedDict(strategics_data)
+
+def get_reserved_troops(game):
+    return game.get_number_of_troops_to_put()['number_of_troops']
 
 
 def initializer(game: game.Game): 
@@ -299,7 +308,3 @@ def fort_state(game):
     troops_count = keys_to_int(game.get_number_of_troops())
     print(game.fort(FORT_NODE, troops_count[FORT_NODE] - ORDINARY_TROOPS_AFTER_FORTRESS))
     FORT_FLAG = True
-
-
-def get_reserved_troops(game):
-    return game.get_number_of_troops_to_put()['number_of_troops']
