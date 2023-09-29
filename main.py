@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from typing import Dict, List
 from src import game
+import numpy as np
 import itertools
 import operator
 import random
@@ -77,14 +78,14 @@ class Nodes:
         for neighbors in MAP[node_id].values():
             integrated_nodes.extend(neighbors)
 
-        return self.filter(owner=PLAYER_ID, function=lambda node: node.node_id in integrated_nodes, name=self.name+'Integrated')
+        return self.filter(is_mine=True, function=lambda node: node.node_id in integrated_nodes, name=self.name+'Integrated')
 
     def get_boundaries(self, node_id):
         another = self.get_integrated(node_id)
         boundary_nodes = []
         for node in another():
-            for adj_id in node.adjacents:
-                if self.owners[adj_id] != PLAYER_ID:
+            for adj in self.by_ids(node.adjacents):
+                if not adj.is_mine:
                     boundary_nodes.append(node)
                     break
 
@@ -143,7 +144,7 @@ class Nodes:
 
     def shortest_path(self, start, stop, player_id=None):
         paths = self.find_paths(start, stop, player_id=player_id)
-        if len(paths):
+        if paths:
             return min(paths, key=len)
         return []
 
@@ -194,6 +195,33 @@ class Nodes:
             for key in self.__slots__
         }
 
+    def get_weights(self, node_id, points=3):
+        ''' 
+        calculate the density of enemies from boundary nodes due to <node_id>
+        weight = sum(number-of-enemies * 1/level)
+        '''
+
+        weights = {}  # node: weight
+        for node in self.get_boundaries(node_id).nodes:
+            weight = 0
+            level = 1
+            checked_nodes = set()
+            enemy_neighbors = list(filter(lambda node: not node.is_mine, self.by_ids(node.adjacents)))
+            while enemy_neighbors:
+                new_enemy_neighbors = []
+                for enemy_node in enemy_neighbors:
+                    if enemy_node not in checked_nodes:
+                        checked_nodes.add(enemy_node)
+                        new_enemy_neighbors.extend(list(filter(lambda node: not node.is_mine, self.by_ids(enemy_node.adjacents))))
+                        weight += (enemy_node.troops * (1/level))
+
+                enemy_neighbors = list(set(new_enemy_neighbors))
+                level += 1
+
+            weights[node.node_id] = trunc(weight, points)
+
+        return weights
+
     def __contains__(self, node_id):
         return node_id in self.get_attribute('node_id')
 
@@ -243,6 +271,13 @@ def keys_to_int(dic):
 
     return {int(key): value for key, value in dic.items()}
 
+def invert_dict(dic):
+    return {value: key for key, value in dic.items()}
+
+def trunc(number, points=2):
+    coef = 10 ** points
+    return int(number * coef) / coef
+
 def normalize(numbers):
     minimum = np.min(numbers)
     maximum = np.max(numbers)
@@ -257,7 +292,7 @@ def get_reserved_troops(game):
     return game.get_number_of_troops_to_put()['number_of_troops']
 
 
-def initializer(game: game.Game): 
+def initializer(game: game.Game):
     """ Handle the initialization phase """
 
     global FORT_NODE, MAIN_NODE, MAIN_NODE_FORMER
@@ -382,35 +417,23 @@ def turn(game):
                             to_state(game, 2)
                         nodes.update(owner=False, fort_troops=False)
 
-    if is_state(game, 1):  # weight = sum(number-of-enemies * 1/level)
-        boundary_nodes = nodes.get_boundaries(MAIN_NODE).nodes
-        for node in boundary_nodes:
-            node.weight = 0
-            level = 1
-            checked_nodes = set()
-            enemy_neighbors = list(filter(lambda node: not node.is_mine, nodes.by_ids(node.adjacents)))
-            while enemy_neighbors:
-                new_enemy_neighbors = []
-                for enemy_node in enemy_neighbors:
-                    if enemy_node not in checked_nodes:
-                        checked_nodes.add(enemy_node)
-                        new_enemy_neighbors.extend(list(filter(lambda node: not node.is_mine, nodes.by_ids(enemy_node.adjacents))))
-                        node.weight += (enemy_node.troops * (1/level))
-
-                enemy_neighbors = list(set(new_enemy_neighbors))
-                level += 1
+    if is_state(game, 1):
+        node_weight = nodes.get_weights(MAIN_NODE)
+        weights_ = list(node_weight.values())
+        nodes_ = list(node_weight.keys())
+        weights_mean = np.mean(weights_)
+        qualified_weights = list(filter(lambda x: x >= weights_mean, weights_))
 
         reserved_troops = get_reserved_troops(game)
-        nodes_count = reserved_troops // 5  # TODO: handle the number of nodes dynamicly
-        nodes_count = 1
-        for node in sorted(boundary_nodes, key=lambda node: node.weight, reverse=True)[:nodes_count]:
-            put_troops = int(2*reserved_troops//3)
-            if put_troops >= 1:
-                if reserved_troops >= 1:
-                    print(game.put_troop(node.node_id, min(put_troops, reserved_troops)))
-                else:
-                    to_state(game, 2)
-                nodes.update(owner=False, fort_troops=False)
+        nodes_count = len(qualified_weights)
+        if nodes_count > reserved_troops:
+            nodes_count = reserved_troops
+        node_troops = reserved_troops // nodes_count
+
+        for node_id in sorted(nodes_, key=lambda node: node_weight[node], reverse=True)[:nodes_count]:
+            print(game.put_troop(node_id, node_troops))
+            to_state(game, 2)
+        nodes.update(owner=False, fort_troops=False)
 
     if is_state(game, 1):
         empty_nodes = nodes(is_empty=True)
