@@ -119,6 +119,26 @@ class Nodes:
     def get_attribute(self, attribute):
         return list(map(operator.attrgetter(attribute), self.nodes))
 
+    def find_paths(self, start, stop, path=[], player_id=None):
+        path += [start]
+
+        if start == stop:
+            return [path]
+
+        total_paths = []
+        for adj in self.adjacents[start]:
+            if adj not in path:
+                if (player_id is None) or (self.owner[adj] == player_id):
+                    total_paths.extend(self.find_paths(adj, stop, path=path, player_id=player_id))
+
+        return total_paths
+
+    def shortest_path(self, start, stop, player_id=None):
+        paths = self.find_paths(start, stop, player_id=player_id)
+        if len(paths):
+            return min(paths, key=len)
+        return []
+
     def by_id(self, node_id):
         return self(node_id=node_id)[0]
 
