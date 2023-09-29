@@ -123,7 +123,8 @@ class Nodes:
         return self(node_id=node_id)[0]
 
     def by_ids(self, node_ids):
-        return list(map(self.by_id, node_ids))
+        for node_id in node_ids:
+            yield self.by_id(node_id)
 
     def filter(self, name=None, **kwargs):
         return self.duplicate(nodes=conditional_getter(self.nodes, **kwargs), name=name if name else self.name+'Filtered')
