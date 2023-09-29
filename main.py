@@ -382,11 +382,13 @@ def turn(game):
     # move-troop state ---------------------------------
     for node in nodes.get_boundaries(MAIN_NODE)(function=lambda n: n.troops<BOUNDARY_TROOPS):
         put_troops = BOUNDARY_TROOPS - node.troops
-        origin_node = random.choice(list(filter(lambda node: node.is_mine, nodes.by_ids(node.adjacents))))
-        if origin_node.troops >= 3:
-            print(game.move_troop(origin_node.node_id, node.node_id, min(put_troops, origin_node.troops)))
-            nodes.update(owner=False, fort_troops=False)
-            break
+        mine_neighbors = list(filter(lambda node: node.is_mine, nodes.by_ids(node.adjacents)))
+        if mine_neighbors:
+            origin_node = random.choice(mine_neighbors)
+            if origin_node.troops >= 3:
+                print(game.move_troop(origin_node.node_id, node.node_id, min(put_troops, origin_node.troops)))
+                nodes.update(owner=False, fort_troops=False)
+                break
 
     to_state(game, 4)
 
