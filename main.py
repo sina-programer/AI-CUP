@@ -363,6 +363,37 @@ def turn(game):
                         else:
                             to_state(game, 2)
                         nodes.update(owner=False, fort_troops=False)
+
+    if is_state(game, 1):  # weight = sum(number-of-enemies * 1/level)
+        boundary_nodes = nodes.get_boundaries(MAIN_NODE).nodes
+        for node in boundary_nodes:
+            node.weight = 0
+            level = 1
+            checked_nodes = set()
+            enemy_neighbors = list(filter(lambda node: not node.is_mine, nodes.by_ids(node.adjacents)))
+            while enemy_neighbors:
+                new_enemy_neighbors = []
+                for enemy_node in enemy_neighbors:
+                    if enemy_node not in checked_nodes:
+                        checked_nodes.add(enemy_node)
+                        new_enemy_neighbors.extend(list(filter(lambda node: not node.is_mine, nodes.by_ids(enemy_node.adjacents))))
+                        node.weight += (enemy_node.troops * (1/level))
+
+                enemy_neighbors = list(set(new_enemy_neighbors))
+                level += 1
+
+        reserved_troops = get_reserved_troops(game)
+        nodes_count = reserved_troops // 5  # TODO: handle the number of nodes dynamicly
+        nodes_count = 1
+        for node in sorted(boundary_nodes, key=lambda node: node.weight, reverse=True)[:nodes_count]:
+            put_troops = int(2*reserved_troops//3)
+            if put_troops >= 1:
+                if reserved_troops >= 1:
+                    print(game.put_troop(node.node_id, min(put_troops, reserved_troops)))
+                else:
+                    to_state(game, 2)
+                nodes.update(owner=False, fort_troops=False)
+
     to_state(game, 2)
 
 
