@@ -12,6 +12,9 @@ MAXIMUM_INITIAL_ORDINARY_NODES = 10
 MINIMUM_STRATEGY_TROOPS = 4
 BOUNDARY_TROOPS = 2  # in first main phase turn, it increases by one (=3)
 ORDINARY_TROOPS_AFTER_FORTRESS = 2
+ATTACK_FLAG = True  # one turn defend, another turn attack
+ATTACK_NODE = None
+ATTACK_DEST = None
 
 INITIAL_TURNS = 35
 MAIN_TURNS = 20
@@ -353,7 +356,8 @@ def initializer(game: game.Game):
 def turn(game):
     """ Handle the main phase """
 
-    global BOUNDARY_TROOPS, MAIN_NODE, FORT_FLAG
+    global BOUNDARY_TROOPS, MAIN_NODE, FORT_FLAG, ATTACK_FLAG, ATTACK_NODE, ATTACK_DEST
+    ATTACK_FLAG = not ATTACK_FLAG
 
     turn = game.get_turn_number()['turn_number']
     player_turn = get_player_turn(turn)
@@ -382,95 +386,69 @@ def turn(game):
         else:
             return
 
+
     # put-troop state ----------------------------------
-    for node in nodes.get_boundaries(FORT_NODE)(function=lambda node: node.troops<BOUNDARY_TROOPS):
-        put_troops = BOUNDARY_TROOPS - node.troops
-        if (reserved_troops := get_reserved_troops(game)) >= 1:
-            print(game.put_troop(node.node_id, min(put_troops, reserved_troops)))
-        else:
-            to_state(game, 2)
-        nodes.update(owner=False, fort_troops=False)
+    put_empty_strategics(game, nodes)
+    nodes.update()
 
-    if is_state(game, 1):
-        for node in nodes.get_boundaries(MAIN_NODE)(function=lambda node: node.troops<BOUNDARY_TROOPS):
-            put_troops = BOUNDARY_TROOPS - node.troops
-            if (reserved_troops := get_reserved_troops(game)) >= 1:
-                print(game.put_troop(node.node_id, min(put_troops, reserved_troops)))
-            else:
-                to_state(game, 2)
-            nodes.update(owner=False, fort_troops=False)
-
-    if is_state(game, 1):
-        for level in range(30, 0, -1):
-            for neighbor in nodes.by_ids(MAP[MAIN_NODE][level]):
-                if neighbor.is_mine:
-                    put_troops = int(level*1.5)+1 - neighbor.troops
-                    if put_troops >= 1:
-                        if (reserved_troops := get_reserved_troops(game)) >= 1:
-                            print(game.put_troop(neighbor.node_id, min(put_troops, reserved_troops)))
-                        else:
-                            to_state(game, 2)
-                        nodes.update(owner=False, fort_troops=False)
-
-    if is_state(game, 1):
-        node_weight = nodes.get_weights(MAIN_NODE)
-        weights_ = list(node_weight.values())
-        nodes_ = list(node_weight.keys())
-        weights_mean = np.mean(weights_)
-        qualified_weights = list(filter(lambda x: x >= weights_mean, weights_))
-
-        reserved_troops = get_reserved_troops(game)
-        nodes_count = len(qualified_weights)
-        if nodes_count > reserved_troops:
-            nodes_count = reserved_troops
-        node_troops = reserved_troops // nodes_count
-
-        for node_id in sorted(nodes_, key=lambda node: node_weight[node], reverse=True)[:nodes_count]:
-            print(game.put_troop(node_id, node_troops))
-            to_state(game, 2)
-        nodes.update(owner=False, fort_troops=False)
-
-    if is_state(game, 1):
-        empty_nodes = nodes(is_empty=True)
-        for node in empty_nodes:
-            node.path = nodes.shortest_path(MAIN_NODE, node.node_id)
-        for node in sorted(empty_nodes, key=lambda node: len(node.path)):
-            if (reserved_troops := get_reserved_troops(game)) >= 1:
-                print(game.put_troop(node.node_id, min(1, reserved_troops)))
-            else:
-                to_state(game, 2)
-            nodes.update(fort_troops=False)
+    if ATTACK_FLAG:
+        put_troop_attacker(game, nodes)
+    else:
+        put_troop_defender(game, nodes)
 
     to_state(game, 2)
+    nodes.update()
 
 
     # attack state -------------------------------------
-    for node in nodes.get_boundaries(MAIN_NODE)():
-        if node.troops >= 3:
-            enemy_nodes = list(filter(lambda node: node.is_enemy, nodes.by_ids(node.adjacents)))
-            if enemy_nodes:
-                enemy_node = max(enemy_nodes, key=lambda node: node.troops)
-                print(game.attack(node.node_id, enemy_node.node_id, .95, .9))
-                break
+    if ATTACK_FLAG:
+        if ATTACK_NODE is not None:
+            while True:
+                attack_node = nodes.by_id(ATTACK_NODE)
+                if attack_node.troops < 3:
+                    break
 
-        else:
-            break
+                if ATTACK_DEST is None:
+                    if player_turn >= INITIAL_TURNS+MAIN_TURNS-5:  # last turns
+                        strategy_dest = nodes.filter(is_strategic=True, is_enemy=True, is_forted=False).sort(key='troops')()[0]
+                        path = nodes.shortest_path(ATTACK_NODE, strategy_dest)
+                        if len(path) <= 2:
+                            break
 
-        nodes.update(fort_troops=False)
+                        ATTACK_DEST = path[1].node_id
+
+                    else:
+                        neighbors = list(filter(lambda node: node.is_enemy, nodes.by_ids(attack_node.adjacents)))
+                        if neighbors:
+                            ATTACK_DEST = min(neighbors, key=lambda node: node.troops).node_id
+                        else:
+                            break
+
+                response = game.attack(ATTACK_NODE, ATTACK_DEST, .95, .9)
+                print(response)
+                if attack_node.is_strategic or response['won']==0:
+                    break
+
+                ATTACK_NODE = ATTACK_DEST
+                ATTACK_DEST = None
+
+        ATTACK_NODE = None
+        ATTACK_DEST = None
 
     to_state(game, 3)
 
 
     # move-troop state ---------------------------------
-    for node in nodes.get_boundaries(MAIN_NODE)(function=lambda n: n.troops<BOUNDARY_TROOPS):
-        put_troops = BOUNDARY_TROOPS - node.troops
-        mine_neighbors = list(filter(lambda node: node.is_mine, nodes.by_ids(node.adjacents)))
-        if mine_neighbors:
-            origin_node = random.choice(mine_neighbors)
-            if origin_node.troops >= 3:
-                print(game.move_troop(origin_node.node_id, node.node_id, min(put_troops, origin_node.troops)))
-                nodes.update(owner=False, fort_troops=False)
-                break
+    if ATTACK_FLAG:
+        for node in nodes.get_boundaries(MAIN_NODE)(function=lambda n: n.troops<BOUNDARY_TROOPS):
+            put_troops = BOUNDARY_TROOPS - node.troops
+            mine_neighbors = list(filter(lambda node: node.is_mine, nodes.by_ids(node.adjacents)))
+            if mine_neighbors:
+                origin_node = random.choice(mine_neighbors)
+                if origin_node.troops >= 3:
+                    print(game.move_troop(origin_node.node_id, node.node_id, min(put_troops, origin_node.troops)))
+                    nodes.update(owner=False, fort_troops=False)
+                    break
 
     to_state(game, 4)
 
@@ -485,6 +463,7 @@ def turn(game):
 
     print('-'*50)
 
+
 def to_state(game, state):
     if game.get_state()['state'] == state-1:
         game.next_state()
@@ -492,3 +471,119 @@ def to_state(game, state):
 def is_state(game, state):
     if game.get_state()['state'] == state:
         return True
+
+def check_boundary_troops(game, nodes, node_id):
+    for node in nodes.get_boundaries(node_id)(function=lambda node: node.troops<BOUNDARY_TROOPS):
+        put_troops = BOUNDARY_TROOPS - node.troops
+        if (reserved_troops := get_reserved_troops(game)) >= 1:
+            print(game.put_troop(node.node_id, min(put_troops, reserved_troops)))
+        else:
+            to_state(game, 2)
+            break
+
+        nodes.update(owner=False, fort_troops=False)
+
+def check_tortoise_defense(game, nodes, node_id):
+    for level in range(30, 0, -1):
+        for neighbor in nodes.by_ids(MAP[node_id][level]):
+            if neighbor.is_mine:
+                put_troops = int(level*1.5)+1 - neighbor.troops
+                if put_troops >= 1:
+                    if (reserved_troops := get_reserved_troops(game)) >= 1:
+                        print(game.put_troop(neighbor.node_id, min(put_troops, reserved_troops)))
+                    else:
+                        to_state(game, 2)
+                        return
+
+                    nodes.update(owner=False, fort_troops=False)
+
+def check_dense_enemies(game, nodes, node_id):
+    node_weight = nodes.get_weights(node_id)
+    weights_ = list(node_weight.values())
+    nodes_ = list(node_weight.keys())
+    weights_mean = np.mean(weights_)
+    qualified_weights = list(filter(lambda x: x >= weights_mean, weights_))
+
+    reserved_troops = get_reserved_troops(game)
+    nodes_count = len(qualified_weights)
+    if nodes_count > reserved_troops:
+        nodes_count = reserved_troops
+    node_troops = reserved_troops // nodes_count
+
+    for node_id in sorted(nodes_, key=lambda node: node_weight[node], reverse=True)[:nodes_count]:
+        print(game.put_troop(node_id, node_troops))
+
+    nodes.update(owner=False, fort_troops=False)
+
+def put_empty_strategics(game, nodes):
+    for node in nodes(is_strategic=True, is_empty=True):
+        if (reserved_troops := get_reserved_troops(game)) >= 1:
+            print(game.put_troop(node.node_id, min(MINIMUM_STRATEGY_TROOPS, reserved_troops)))
+            nodes.update(fort_troops=False)
+        else:
+            to_state(game, 2)
+            return
+
+def put_empty_nodes(game, nodes, node_id):
+    empty_nodes = nodes(is_empty=True)
+    for node in empty_nodes:
+        node.path = nodes.shortest_path(node_id, node.node_id)
+    for node in sorted(empty_nodes, key=lambda node: len(node.path)):
+        if (reserved_troops := get_reserved_troops(game)) >= 1:
+            print(game.put_troop(node.node_id, min(1, reserved_troops)))
+            nodes.update(fort_troops=False)
+        else:
+            to_state(game, 2)
+            return
+
+
+def put_troop_defender(game, nodes):
+    check_boundary_troops(game, nodes, MAIN_NODE)
+
+    if is_state(game, 1):
+        check_boundary_troops(game, nodes, FORT_NODE)
+
+    if is_state(game, 1):
+        check_tortoise_defense(game, nodes, MAIN_NODE)
+
+    if is_state(game, 1):
+        check_dense_enemies(game, nodes, MAIN_NODE)
+
+    if is_state(game, 1):
+        put_empty_nodes(game, nodes, MAIN_NODE)
+
+def put_troop_attacker(game, nodes):
+    check_loose_strategics(game, nodes)
+
+    if is_state(game, 1):
+        check_low_enemies(game, nodes, FORT_NODE)
+
+def check_loose_strategics(game, nodes):
+    global ATTACK_NODE, ATTACK_DEST
+
+    for node in nodes.filter(is_strategic=True, is_enemy=True).sort(key='score')():
+        for adj in nodes.by_ids(node.adjacents):
+            if adj.is_empty:
+                reserved_troops = get_reserved_troops(game)
+                ATTACK_NODE = adj.node_id
+                ATTACK_DEST = node.node_id
+                print(game.put_troop(ATTACK_NODE, reserved_troops))
+
+                to_state(game, 3)
+                return ATTACK_NODE
+
+def check_low_enemies(game, nodes, node_id):
+    global ATTACK_NODE
+
+    node_weight = nodes.get_weights(node_id)
+    weight_node = invert_dict(node_weight)
+
+    least_weight = min(node_weight.values())
+    least_node = weight_node[least_weight]
+    ATTACK_NODE = least_node
+
+    reserved_troops = get_reserved_troops(game)
+    print(game.put_troop(ATTACK_NODE, reserved_troops-2))
+    to_state(game, 3)
+
+    return ATTACK_NODE
