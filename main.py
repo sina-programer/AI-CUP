@@ -235,6 +235,16 @@ def keys_to_int(dic):
 
     return {int(key): value for key, value in dic.items()}
 
+def normalize(numbers):
+    minimum = np.min(numbers)
+    maximum = np.max(numbers)
+    return (numbers - minimum) / (maximum - minimum)
+
+def softmax(x):
+    x = np.array(x)
+    e_x = np.exp(x - np.max(x))  # Subtracting np.max(x) for numerical stability
+    return e_x / e_x.sum(axis=0)
+
 def get_reserved_troops(game):
     return game.get_number_of_troops_to_put()['number_of_troops']
 
