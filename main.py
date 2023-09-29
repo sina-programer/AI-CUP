@@ -324,13 +324,6 @@ def initializer(game: game.Game):
         print(game.put_one_troop(MAIN_NODE))
         return
 
-    # Next, occupy empty planets
-    for node in nodes.by_ids(MAP[FORT_NODE][1]):
-        if node.is_empty:
-            print(game.put_one_troop(node.node_id))
-            return
-
-    # First, occupy empty planets
     if len(nodes.filter(is_mine=True, is_strategic=False)) < MAXIMUM_INITIAL_ORDINARY_NODES:
         for neighbors in MAP[MAIN_NODE].values():
             for node in nodes.by_ids(neighbors):
@@ -338,19 +331,21 @@ def initializer(game: game.Game):
                     print(game.put_one_troop(node.node_id))
                     return
 
-    # boost the boundary
+    for node in nodes.by_ids(MAP[FORT_NODE][1]):
+        if node.is_empty:
+            print(game.put_one_troop(node.node_id))
+            return
+
     for node in nodes.get_boundaries(MAIN_NODE)():
         if node.troops < BOUNDARY_TROOPS:
             print(game.put_one_troop(node.node_id))
             return
 
-    # put on strategics
     node = nodes.by_id(MAIN_NODE)
     if node.troops < MAIN_NODE_TROOPS:
         print(game.put_one_troop(node.node_id))
         return
 
-    # Finally, put troops on strategic nodes randomly
     print(game.put_one_troop(FORT_NODE))
     return
 
