@@ -10,7 +10,6 @@ import copy
 MAXIMUM_INITIAL_ORDINARY_NODES = 10
 MAIN_NODE_TROOPS = 4
 BOUNDARY_TROOPS = 2  # in first main phase turn, it increases by one (=3)
-INSIDE_TROOPS = 2
 ORDINARY_TROOPS_AFTER_FORTRESS = 2
 
 INITIAL_TURNS = 35
@@ -21,7 +20,7 @@ FORT_FLAG = False  # Has the fortress been completed yet?
 FORT_NODE = None
 MAIN_NODE = None
 MAIN_NODE_FORMER = None  # the original main node
-MAP : Dict[int, Dict[int, List[int]]] = {}  # {node: {level: [related neighbors]}}
+MAP : Dict[int, Dict[int, List[int]]] = dict()  # {node: {level: [related neighbors]}}
 
 
 class Node:
@@ -53,9 +52,16 @@ class Node:
 
 
 class Nodes:
-    def __init__(self, game, nodes=None, name=None):
+    __slots__ = ['game', 'strategic_nodes', 'fort_troops', 'troops_count', 'adjacents', 'owners', 'nodes', 'name']
+
+    def __init__(self, game, strategic_nodes=None, fort_troops=None, troops_count=None, owners=None, adjacents=None, nodes=None, name=None):
         self.game = game
-        self.nodes = nodes if nodes else Nodes.get_nodes(self.game)
+        self.strategic_nodes = strategic_nodes if strategic_nodes is not None else Nodes.get_strategic_nodes_dict(self.game)
+        self.fort_troops = fort_troops if fort_troops is not None else keys_to_int(self.game.get_number_of_fort_troops())
+        self.troops_count = troops_count if troops_count is not None else keys_to_int(self.game.get_number_of_troops())
+        self.adjacents = adjacents if adjacents is not None else keys_to_int(self.game.get_adj())
+        self.owners = owners if owners is not None else keys_to_int(self.game.get_owners())
+        self.nodes = nodes if nodes is not None else self.get_nodes()
         self.name = name
 
     def get_integrated(self, node_id):
@@ -68,34 +74,25 @@ class Nodes:
     def get_boundaries(self, node_id):
         another = self.get_integrated(node_id)
         boundary_nodes = []
-
         for node in another():
             for adj_id in node.adjacents:
-                adj_node = self.by_id(adj_id)
-                if adj_node.owner != PLAYER_ID:
+                if self.owners[adj_id] != PLAYER_ID:
                     boundary_nodes.append(node)
                     break
 
         another.nodes = boundary_nodes
         return another
 
-    @classmethod
-    def get_nodes(cls, game):
-        strategic_nodes = Nodes.get_strategic_nodes_dict(game)
-        fort_troops = keys_to_int(game.get_number_of_fort_troops())
-        troops_count = keys_to_int(game.get_number_of_troops())
-        adjacents = keys_to_int(game.get_adj())
-        owners = keys_to_int(game.get_owners())
+    def get_nodes(self):
         nodes = []
-
-        for i in owners:
+        for i in self.owners:
             nodes.append(
                 Node(
                     i,
-                    owner=owners[i],
-                    troops=troops_count[i],
-                    fort_troops=fort_troops[i],
-                    adjacents=adjacents[i],
+                    owner=self.owners[i],
+                    troops=self.troops_count[i],
+                    fort_troops=self.fort_troops[i],
+                    adjacents=self.adjacents[i],
                     score=self.strategic_nodes.get(i, -1)
                 )
             )
@@ -119,14 +116,26 @@ class Nodes:
 
         return OrderedDict(strategics_data)
 
-    def filter(self, name=None, **kwargs):
-        return Nodes(self.game, nodes=conditional_getter(self.nodes, **kwargs), name=name)
-
     def get_attribute(self, attribute):
         return list(map(operator.attrgetter(attribute), self.nodes))
 
     def by_id(self, node_id):
         return self(node_id=node_id)[0]
+
+    def by_ids(self, node_ids):
+        return list(map(self.by_id, node_ids))
+
+    def filter(self, name=None, **kwargs):
+        return self.duplicate(nodes=conditional_getter(self.nodes, **kwargs), name=name if name else self.name+'Filtered')
+
+    def sort(self, key, reverse=True, name=None):
+        return self.duplicate(nodes=sorted(self.nodes, key=operator.attrgetter(key), reverse=reverse), name=name if name else self.name+'Sorted')
+
+    def duplicate(self, **kwargs):
+        return Nodes(**{
+            **self.get_parameters(),
+            **kwargs
+        })
 
     def update(self, owner=True, troops=True, fort_troops=True):
         new_data = {
@@ -140,8 +149,21 @@ class Nodes:
                 for node in self.nodes:
                     setattr(node, param, values[node.node_id])
 
+                if param == 'owner':
+                    self.owners = values
+                elif param == 'troops':
+                    self.troops_count = values
+                elif param == 'fort-troops':
+                    self.fort_troops = values
+
     def copy(self):
         return copy.copy(self)
+
+    def get_parameters(self):
+        return {
+            key: getattr(self, key)
+            for key in self.__slots__
+        }
 
     def __contains__(self, node_id):
         return node_id in self.get_attribute('node_id')
@@ -223,30 +245,24 @@ def initializer(game: game.Game):
     print(f'Global Turn:  {turn:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
 
     nodes = Nodes(game, name='EntireNodes')
-    my_nodes = nodes.filter(is_mine=True, name='MyNodes')
-    strategic_nodes = nodes.filter(is_strategic=True, name='StrategicNodes')
-    my_ordinary_nodes = my_nodes.filter(is_strategic=False, name='MyOrdinaryNodes')
 
     # first check for empty strategic nodes
-    for node in strategic_nodes(owner=-1):
+    for node in nodes.filter(is_strategic=True, owner=-1).sort(key='score')():
         print(game.put_one_troop(node.node_id))
         return
 
-    # First, occupy empty planets
-    if len(my_ordinary_nodes) < MAXIMUM_INITIAL_ORDINARY_NODES:
-        for neighbors in MAP[MAIN_NODE].values():
-            for neighbor in neighbors:
-                node = nodes.by_id(neighbor)
-                if node.owner == -1:
-                    print(game.put_one_troop(node.node_id))
-                    return
-
-    # Next, occupy empty planets
-    for neighbor in MAP[FORT_NODE][1]:
-        node = nodes.by_id(neighbor)
+    for node in nodes.by_ids(MAP[FORT_NODE][1]):
         if node.owner == -1:
             print(game.put_one_troop(node.node_id))
             return
+
+    # First, occupy empty planets
+    if len(nodes.filter(is_mine=True, is_strategic=False)) < MAXIMUM_INITIAL_ORDINARY_NODES:
+        for neighbors in MAP[MAIN_NODE].values():
+            for node in nodes.by_ids(neighbors):
+                if node.owner == -1:
+                    print(game.put_one_troop(node.node_id))
+                    return
 
     # boost the boundary
     for node in nodes.get_boundaries(MAIN_NODE)():
@@ -255,7 +271,7 @@ def initializer(game: game.Game):
             return
 
     # put on strategics
-    node = my_nodes.by_id(MAIN_NODE)
+    node = nodes.by_id(MAIN_NODE)
     if node.troops < MAIN_NODE_TROOPS:
         print(game.put_one_troop(node.node_id))
         return
@@ -275,19 +291,23 @@ def turn(game):
     print(f'Global Turn:  {turn:<6} Player Turn:  {player_turn:<6} Player ID: {PLAYER_ID}')
 
     nodes = Nodes(game, name='EntireNodes')
-    my_nodes = nodes.filter(is_mine=True, name='MyNodes')
 
     if player_turn == INITIAL_TURNS+1:
         BOUNDARY_TROOPS += 1
 
-    owners = keys_to_int(game.get_owners())
-    if owners[MAIN_NODE] == PLAYER_ID:
+    if nodes.owners[MAIN_NODE] == PLAYER_ID:
         MAIN_NODE = MAIN_NODE_FORMER
     else:
-        main_area = nodes.get_integrated(MAIN_NODE).filter(function=lambda n: n.node_id!=MAIN_NODE, owner=PLAYER_ID)
-        sorted_nodes = sorted(main_area.nodes, key=lambda n: n.troops)
-        MAIN_NODE = sorted_nodes[-1].node_id
+        new_node_id = None
+        for neighbors in MAP[MAIN_NODE_FORMER].values():
+            for neighbor in nodes.by_ids(neighbors):
+                if neighbor.is_mine:
+                    new_node_id = neighbor.node_id
 
+        if new_node_id is not None:
+            MAIN_NODE = nodes.get_integrated(new_node_id).sort('troops')()[0].node_id
+        else:
+            return
 
     # put-troop state ----------------------------------
     for node in nodes.get_boundaries(FORT_NODE)(function=lambda node: node.troops<BOUNDARY_TROOPS):
@@ -296,6 +316,7 @@ def turn(game):
             print(game.put_troop(node.node_id, min(put_troops, reserved_troops)))
         else:
             to_state(game, 2)
+        nodes.update(owner=False, fort_troops=False)
 
     if is_state(game, 1):
         for node in nodes.get_boundaries(MAIN_NODE)(function=lambda node: node.troops<BOUNDARY_TROOPS):
@@ -304,24 +325,27 @@ def turn(game):
                 print(game.put_troop(node.node_id, min(put_troops, reserved_troops)))
             else:
                 to_state(game, 2)
+            nodes.update(owner=False, fort_troops=False)
 
     if is_state(game, 1):
-        for node in my_nodes(function=lambda node: node.troops<INSIDE_TROOPS):
-            put_troops = INSIDE_TROOPS - node.troops
-            if (reserved_troops := get_reserved_troops(game)) >= 1:
-                print(game.put_troop(node.node_id, min(put_troops, reserved_troops)))
-            else:
-                to_state(game, 2)
-
+        for level in range(30, 0, -1):
+            for neighbor in nodes.by_ids(MAP[MAIN_NODE][level]):
+                if neighbor.is_mine:
+                    put_troops = int(level*1.5)+1 - neighbor.troops
+                    if put_troops >= 1:
+                        if (reserved_troops := get_reserved_troops(game)) >= 1:
+                            print(game.put_troop(neighbor.node_id, min(put_troops, reserved_troops)))
+                        else:
+                            to_state(game, 2)
+                        nodes.update(owner=False, fort_troops=False)
     to_state(game, 2)
 
 
     # attack state -------------------------------------
     for node in nodes.get_boundaries(MAIN_NODE)():
         if node.troops >= 3:
-            enemy_neighbors = list(filter(lambda n: owners[n] not in [-1, PLAYER_ID], node.adjacents))
-            if enemy_neighbors:
-                enemy_nodes = list(map(lambda n: nodes.by_id(n), enemy_neighbors))
+            enemy_nodes = list(filter(lambda node: node.owner not in [-1, PLAYER_ID], nodes.by_ids(node.adjacents)))
+            if enemy_nodes:
                 enemy_node = sorted(enemy_nodes, key=lambda node: node.troops)[-1]
                 print(game.attack(node.node_id, enemy_node.node_id, .95, .9))
                 break
@@ -335,12 +359,12 @@ def turn(game):
 
 
     # move-troop state ---------------------------------
-    nodes.update(owner=False, fort_troops=False)
     for node in nodes.get_boundaries(MAIN_NODE)(function=lambda n: n.troops<BOUNDARY_TROOPS):
         put_troops = BOUNDARY_TROOPS - node.troops
-        origin_node = nodes.by_id(random.choice(list(filter(lambda n: nodes.by_id(n).is_mine, node.adjacents))))
+        origin_node = random.choice(list(filter(lambda node: node.is_mine, nodes.by_ids(node.adjacents))))
         if origin_node.troops >= 3:
             print(game.move_troop(origin_node.node_id, node.node_id, min(put_troops, origin_node.troops)))
+            nodes.update(owner=False, fort_troops=False)
             break
 
     to_state(game, 4)
@@ -348,7 +372,7 @@ def turn(game):
 
     # fort state ---------------------------------------
     fort_node = nodes.by_id(FORT_NODE)
-    if (not FORT_FLAG) and (fort_node.owner == PLAYER_ID):
+    if (not FORT_FLAG) and fort_node.is_mine:
         print(game.fort(fort_node.node_id, fort_node.troops - ORDINARY_TROOPS_AFTER_FORTRESS))
         FORT_FLAG = True
 
