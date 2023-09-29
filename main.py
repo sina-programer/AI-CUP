@@ -35,7 +35,7 @@ class Node:
 
     @property
     def is_strategic(self):
-        return self.score is not None
+        return self.score >= 0
 
     @property
     def is_mine(self):
@@ -49,7 +49,7 @@ class Node:
         return copy.copy(self)
 
     def __repr__(self):
-        return f"Node(owner={self.owner}, troops={self.troops}, fort-troops={self.fort_troops}, adjacents={self.adjacents}, score={self.score})"
+        return f"Node({self.node_id}, owner={self.owner}, troops={self.troops}, fort-troops={self.fort_troops}, score={self.score}, adjacents={self.adjacents})"
 
 
 class Nodes:
@@ -63,7 +63,7 @@ class Nodes:
         for neighbors in MAP[node_id].values():
             integrated_nodes.extend(neighbors)
 
-        return self.filter(owner=PLAYER_ID, function=lambda node: node.node_id in integrated_nodes)
+        return self.filter(owner=PLAYER_ID, function=lambda node: node.node_id in integrated_nodes, name=self.name+'Integrated')
 
     def get_boundaries(self, node_id):
         another = self.get_integrated(node_id)
@@ -96,7 +96,7 @@ class Nodes:
                     troops=troops_count[i],
                     fort_troops=fort_troops[i],
                     adjacents=adjacents[i],
-                    score=strategic_nodes.get(i, None)
+                    score=self.strategic_nodes.get(i, -1)
                 )
             )
 
@@ -163,7 +163,6 @@ def initialize_player_id(game):
 def initialize_fort_node(game):
     global FORT_NODE, MAIN_NODE, MAIN_NODE_FORMER
 
-    adjacents = keys_to_int(game.get_adj())
     my_strategic_nodes = Nodes.get_strategic_nodes_dict(game, player_id=PLAYER_ID)
     my_strategic_nodes_ = list(my_strategic_nodes.keys())
     FORT_NODE = my_strategic_nodes_[0]
