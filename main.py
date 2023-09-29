@@ -341,9 +341,8 @@ def initializer(game: game.Game):
             print(game.put_one_troop(node.node_id))
             return
 
-    node = nodes.by_id(MAIN_NODE)
-    if node.troops < MAIN_NODE_TROOPS:
-        print(game.put_one_troop(node.node_id))
+    if nodes.troops[MAIN_NODE] < MAIN_NODE_TROOPS:
+        print(game.put_one_troop(MAIN_NODE))
         return
 
     print(game.put_one_troop(FORT_NODE))
