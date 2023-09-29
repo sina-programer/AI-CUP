@@ -203,15 +203,6 @@ def initialize_player_id(game):
     global PLAYER_ID
     PLAYER_ID = game.get_player_id()['player_id']
 
-def initialize_fort_node(game):
-    global FORT_NODE, MAIN_NODE, MAIN_NODE_FORMER
-
-    my_strategic_nodes = Nodes.get_strategic_nodes_dict(game, player_id=PLAYER_ID)
-    my_strategic_nodes_ = list(my_strategic_nodes.keys())
-    FORT_NODE = my_strategic_nodes_[0]
-    MAIN_NODE = my_strategic_nodes_[1]
-    MAIN_NODE_FORMER = MAIN_NODE
-
 def initialize_map(game, level):
     global MAP
 
@@ -251,14 +242,13 @@ def get_reserved_troops(game):
 def initializer(game: game.Game): 
     """ Handle the initialization phase """
 
+    global FORT_NODE, MAIN_NODE, MAIN_NODE_FORMER
+
     turn = game.get_turn_number()['turn_number']
     player_turn = get_player_turn(turn)
 
     if not PLAYER_ID:
         initialize_player_id(game)
-
-    if player_turn == 3:  # after occupying our two strategic nodes
-        initialize_fort_node(game)
 
     initialize_map(game, level=player_turn)
 
@@ -267,11 +257,21 @@ def initializer(game: game.Game):
 
     nodes = Nodes(game, name='EntireNodes')
 
-    # first check for empty strategic nodes
-    for node in nodes.filter(is_strategic=True, owner=-1).sort(key='score')():
-        print(game.put_one_troop(node.node_id))
+    if FORT_NODE is None:
+        FORT_NODE = nodes.sort(key='score')(is_strategic=True, owner=-1)[0].node_id
+        print(game.put_one_troop(FORT_NODE))
         return
 
+    if MAIN_NODE is None:
+        strategic_nodes = nodes(is_strategic=True, owner=-1)
+        for node in strategic_nodes:
+            node.path = nodes.shortest_path(FORT_NODE, node.node_id)
+        MAIN_NODE = min(strategic_nodes, key=lambda node: len(node.path)).node_id
+        MAIN_NODE_FORMER = MAIN_NODE
+        print(game.put_one_troop(MAIN_NODE))
+        return
+
+    # Next, occupy empty planets
     for node in nodes.by_ids(MAP[FORT_NODE][1]):
         if node.owner == -1:
             print(game.put_one_troop(node.node_id))
