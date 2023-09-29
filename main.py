@@ -41,6 +41,14 @@ class Node:
         return self.owner == PLAYER_ID
 
     @property
+    def is_empty(self):
+        return self.owner == -1
+
+    @property
+    def is_enemy(self):
+        return self.owner not in [-1, PLAYER_ID]
+
+    @property
     def is_forted(self):
         return self.fort_troops > 0
 
@@ -268,12 +276,12 @@ def initializer(game: game.Game):
     nodes = Nodes(game, name='EntireNodes')
 
     if FORT_NODE is None:
-        FORT_NODE = nodes.sort(key='score')(is_strategic=True, owner=-1)[0].node_id
+        FORT_NODE = nodes.sort(key='score')(is_strategic=True, is_empty=True)[0].node_id
         print(game.put_one_troop(FORT_NODE))
         return
 
     if MAIN_NODE is None:
-        strategic_nodes = nodes(is_strategic=True, owner=-1)
+        strategic_nodes = nodes(is_strategic=True, is_empty=True)
         for node in strategic_nodes:
             node.path = nodes.shortest_path(FORT_NODE, node.node_id)
         MAIN_NODE = min(strategic_nodes, key=lambda node: len(node.path)).node_id
@@ -283,7 +291,7 @@ def initializer(game: game.Game):
 
     # Next, occupy empty planets
     for node in nodes.by_ids(MAP[FORT_NODE][1]):
-        if node.owner == -1:
+        if node.is_empty:
             print(game.put_one_troop(node.node_id))
             return
 
@@ -291,7 +299,7 @@ def initializer(game: game.Game):
     if len(nodes.filter(is_mine=True, is_strategic=False)) < MAXIMUM_INITIAL_ORDINARY_NODES:
         for neighbors in MAP[MAIN_NODE].values():
             for node in nodes.by_ids(neighbors):
-                if node.owner == -1:
+                if node.is_empty:
                     print(game.put_one_troop(node.node_id))
                     return
 
@@ -405,7 +413,7 @@ def turn(game):
                 nodes.update(owner=False, fort_troops=False)
 
     if is_state(game, 1):
-        empty_nodes = nodes(owner=-1)
+        empty_nodes = nodes(is_empty=True)
         for node in empty_nodes:
             node.path = nodes.shortest_path(MAIN_NODE, node.node_id)
         for node in sorted(empty_nodes, key=lambda node: len(node.path)):
@@ -421,7 +429,7 @@ def turn(game):
     # attack state -------------------------------------
     for node in nodes.get_boundaries(MAIN_NODE)():
         if node.troops >= 3:
-            enemy_nodes = list(filter(lambda node: node.owner not in [-1, PLAYER_ID], nodes.by_ids(node.adjacents)))
+            enemy_nodes = list(filter(lambda node: node.is_enemy, nodes.by_ids(node.adjacents)))
             if enemy_nodes:
                 enemy_node = max(enemy_nodes, key=lambda node: node.troops)
                 print(game.attack(node.node_id, enemy_node.node_id, .95, .9))
