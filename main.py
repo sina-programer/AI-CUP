@@ -219,7 +219,7 @@ def initialize_map(game, level):
             for neighbor in MAP[node_id][level-1]:
                 neighbors = neighbors.union(adjacents[neighbor])
             neighbors -= set(MAP[node_id][level-1] + MAP[node_id][level-2])
-            MAP[node_id][level] = sorted(list(neighbors))
+            MAP[node_id][level] = list(neighbors)
 
 def conditional_getter(objects, function=None, **conditions):
     if function:
@@ -402,7 +402,7 @@ def turn(game):
         if node.troops >= 3:
             enemy_nodes = list(filter(lambda node: node.owner not in [-1, PLAYER_ID], nodes.by_ids(node.adjacents)))
             if enemy_nodes:
-                enemy_node = sorted(enemy_nodes, key=lambda node: node.troops)[-1]
+                enemy_node = max(enemy_nodes, key=lambda node: node.troops)
                 print(game.attack(node.node_id, enemy_node.node_id, .95, .9))
                 break
 
