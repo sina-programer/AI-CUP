@@ -9,7 +9,7 @@ import copy
 
 
 MAXIMUM_INITIAL_ORDINARY_NODES = 10
-MAIN_NODE_TROOPS = 4
+MINIMUM_STRATEGY_TROOPS = 4
 BOUNDARY_TROOPS = 2  # in first main phase turn, it increases by one (=3)
 ORDINARY_TROOPS_AFTER_FORTRESS = 2
 
@@ -341,9 +341,10 @@ def initializer(game: game.Game):
             print(game.put_one_troop(node.node_id))
             return
 
-    if nodes.troops[MAIN_NODE] < MAIN_NODE_TROOPS:
-        print(game.put_one_troop(MAIN_NODE))
-        return
+    for node in nodes(is_strategic=True, is_mine=True):
+        if node.troops < MINIMUM_STRATEGY_TROOPS:
+            print(game.put_one_troop(node.node_id))
+            return
 
     print(game.put_one_troop(FORT_NODE))
     return
