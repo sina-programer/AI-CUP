@@ -320,10 +320,14 @@ def turn(game):
         MAIN_NODE = MAIN_NODE_FORMER
     else:
         new_node_id = None
-        for neighbors in MAP[MAIN_NODE_FORMER].values():
-            for neighbor in nodes.by_ids(neighbors):
-                if neighbor.is_mine:
-                    new_node_id = neighbor.node_id
+        for campus in [MAIN_NODE_FORMER, FORT_NODE]:
+            for neighbors in MAP[campus].values():
+                for neighbor in nodes.by_ids(neighbors):
+                    if neighbor.is_mine:
+                        new_node_id = neighbor.node_id
+
+        if new_node_id is None:
+            new_node_id = nodes.filter(is_mine=True).sort('troops')()[0].node_id
 
         if new_node_id is not None:
             MAIN_NODE = nodes.get_integrated(new_node_id).sort('troops')()[0].node_id
