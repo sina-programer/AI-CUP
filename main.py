@@ -394,6 +394,17 @@ def turn(game):
                     to_state(game, 2)
                 nodes.update(owner=False, fort_troops=False)
 
+    if is_state(game, 1):
+        empty_nodes = nodes(owner=-1)
+        for node in empty_nodes:
+            node.path = nodes.shortest_path(MAIN_NODE, node.node_id)
+        for node in sorted(empty_nodes, key=lambda node: len(node.path)):
+            if (reserved_troops := get_reserved_troops(game)) >= 1:
+                print(game.put_troop(node.node_id, min(1, reserved_troops)))
+            else:
+                to_state(game, 2)
+            nodes.update(fort_troops=False)
+
     to_state(game, 2)
 
 
